@@ -65,3 +65,22 @@ func TestSetPreferredSizeFit(t *testing.T) {
 		t.Fatalf("unexpected oversized fit: ratio=%v size=%+v", ratio, ctx.PreferredSize)
 	}
 }
+
+func TestSetPreferredSizeFitUsesDesktopSize(t *testing.T) {
+	ctx := &Context{DesktopSize: core.Size{Width: 2560, Height: 1440}}
+
+	// A 1264x2780 phone screenshot should use 80% of the real screen height
+	// (1152 points), not the old 1280x800 fixed fallback (640 points).
+	ratio := ctx.SetPreferredSizeFit(core.Size{Width: 1264, Height: 2780}, 0.8, core.Size{})
+	wantRatio := 1152.0 / 2780.0
+	wantSize := core.Size{Width: 1264 * core.Points(wantRatio), Height: 1152}
+	if diff := ratio - wantRatio; diff > 1e-9 || diff < -1e-9 {
+		t.Fatalf("ratio = %v, want %v", ratio, wantRatio)
+	}
+	if ctx.PreferredSize != wantSize {
+		t.Fatalf("size = %+v, want %+v", ctx.PreferredSize, wantSize)
+	}
+	if ctx.PreferredSize.Height < 1100 {
+		t.Fatalf("tall image window height = %v, expected to use the real desktop", ctx.PreferredSize.Height)
+	}
+}

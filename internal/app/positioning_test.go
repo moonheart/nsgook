@@ -27,6 +27,12 @@ func TestResizeNewAndNineZones(t *testing.T) {
 		t.Fatalf("expected centered at (500, 270), got %+v", f)
 	}
 
+	// Tiny preferred sizes are raised to the minimum window width/height.
+	tiny := ResizeAndCentreNewWindow(core.Size{Width: 200, Height: 200}, displays)
+	if tiny.Width != MinWindowWidth || tiny.Height != MinWindowHeight {
+		t.Fatalf("expected minimum frame %vx%v, got %+v", MinWindowWidth, MinWindowHeight, tiny)
+	}
+
 	// Huge preferred size clamps inside 0.85 * VisibleFrame.
 	huge := ResizeAndCentreNewWindow(core.Size{Width: 4000, Height: 2000}, displays)
 	if huge.Width > 1800*0.85+1 || huge.Height > 1140*0.85+1 {

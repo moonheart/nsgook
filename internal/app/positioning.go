@@ -8,7 +8,7 @@ import (
 )
 
 const (
-	MinWindowWidth  core.Points = 360
+	MinWindowWidth  core.Points = 480
 	MinWindowHeight core.Points = 240
 	DefaultMaxRatio             = 0.85
 )

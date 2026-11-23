@@ -24,11 +24,14 @@ type MenuAction struct {
 
 // Context connects a viewer plugin instance to the hosting preview window and services.
 type Context struct {
-	Path               string
-	IsDir              bool
-	Title              *core.Signal[string]
-	IsBusy             *core.Signal[bool]
-	PreferredSize      core.Size
+	Path          string
+	IsDir         bool
+	Title         *core.Signal[string]
+	IsBusy        *core.Signal[bool]
+	PreferredSize core.Size
+	// DesktopSize is the usable desktop bounds in points, used by
+	// SetPreferredSizeFit when a caller does not pass an explicit desktop size.
+	DesktopSize        core.Size
 	CanResize          *core.Signal[bool]
 	FullWindowDragging *core.Signal[bool]
 	TitlebarOverlap    *core.Signal[bool]
@@ -94,6 +97,7 @@ func (c *Context) Reset(path string, isDir bool) {
 	c.IsDir = isDir
 	c.IsBlocked = false
 	c.PreferredSize = core.Size{Width: 800, Height: 600}
+	c.DesktopSize = core.Size{}
 	if c.Title != nil {
 		c.Title.Set("")
 	}
@@ -124,6 +128,9 @@ func (c *Context) SetPreferredSizeFit(size core.Size, maxRatio float64, desktop 
 	}
 	if maxRatio <= 0 {
 		maxRatio = 0.8
+	}
+	if desktop.Width <= 0 || desktop.Height <= 0 {
+		desktop = c.DesktopSize
 	}
 	if desktop.Width <= 0 || desktop.Height <= 0 {
 		desktop = core.Size{Width: 1280, Height: 800}

@@ -250,6 +250,7 @@ func (s *ViewerSession) Load(path string, forcePluginID string) {
 	blocked := false
 	batch(func() {
 		s.ctx.Reset(clean, isDir)
+		s.ctx.DesktopSize = s.desktopSize()
 		s.isDirSig.Set(isDir)
 
 		allowed := s.ctrl.cfg.IsExtensionAllowed(clean)
@@ -309,6 +310,23 @@ func (s *ViewerSession) Load(path string, forcePluginID string) {
 	if !blocked && s.win != nil && !s.IsClosed() {
 		s.BringToFront()
 	}
+}
+
+// desktopSize returns the usable bounds of the display holding this session's window.
+// Plugins use it to size preference against the real screen instead of a fixed fallback.
+func (s *ViewerSession) desktopSize() core.Size {
+	if s.ctrl == nil || s.ctrl.app == nil {
+		return core.Size{}
+	}
+	displays := s.ctrl.app.Env().Displays()
+	if len(displays) == 0 {
+		return core.Size{}
+	}
+	var frame desktop.WindowFrame
+	if s.win != nil && s.scope != nil && !s.scope.Disposed() {
+		frame = desktop.Frame(s.scope)
+	}
+	return usableBounds(PickDisplay(displays, frame)).Size
 }
 
 func (s *ViewerSession) updateWatcher(path string, isDir bool) {

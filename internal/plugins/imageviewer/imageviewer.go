@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"image"
 	"image/png"
+	"math"
 	"os"
 	"path/filepath"
 	"runtime/debug"
@@ -46,7 +47,7 @@ func (Plugin) CanHandle(path string) bool {
 func (Plugin) Prepare(path string, ctx *viewer.Context) {
 	meta := ReadMeta(path)
 	if meta.Width > 0 && meta.Height > 0 {
-		ctx.SetPreferredSizeFit(core.Size{Width: core.Points(meta.Width), Height: core.Points(meta.Height)}, 0.8, core.Size{})
+		ctx.SetPreferredSizeFit(core.Size{Width: core.Points(meta.Width), Height: core.Points(meta.Height)}, 0.8, ctx.DesktopSize)
 		ctx.Title.Set(fmt.Sprintf("%d×%d: %s", meta.Width, meta.Height, viewer.DisplayName(path)))
 	} else {
 		ctx.PreferredSize = core.Size{Width: 800, Height: 600}
@@ -113,6 +114,22 @@ func (Plugin) View(cx *core.Scope, path string, ctx *viewer.Context) core.Node {
 		}
 	})
 	ctx.TrackMedia(cx)
+
+	// Extremely tall screenshots are unreadable when the whole image is fitted
+	// into a narrow window. Start those at fit-width so the content is legible;
+	// the "fit window" control still shows the whole image.
+	initialFitDone := false
+	cx.Effect(func() {
+		if initialFitDone || stopped.Load() {
+			return
+		}
+		bounds, ok := tallImageFitBounds(viewSize.Get(), meta.Width, meta.Height)
+		if !ok {
+			return
+		}
+		initialFitDone = true
+		cam.FitBounds(bounds)
+	})
 
 	ensureDecoded := func() {
 		if !decodeStarted.CompareAndSwap(false, true) {
@@ -587,6 +604,26 @@ func (Plugin) View(cx *core.Scope, path string, ctx *viewer.Context) core.Node {
 			},
 		},
 	)
+}
+
+func tallImageFitBounds(view core.Size, width, height int) (core.Bounds, bool) {
+	if view.Width <= 0 || view.Height <= 0 || width <= 0 || height <= 0 {
+		return core.Bounds{}, false
+	}
+	if float64(height) <= float64(width)*3 {
+		return core.Bounds{}, false
+	}
+	scale := math.Min(1, float64(view.Width)/float64(width))
+	if scale <= 0 {
+		return core.Bounds{}, false
+	}
+	visible := float64(view.Height) / scale
+	if visible > float64(height) {
+		visible = float64(height)
+	}
+	return core.Bounds{
+		Size: core.Size{Width: core.Points(width), Height: core.Points(visible)},
+	}, true
 }
 
 func buildSVGHTML(svg string, checkered, dark bool) string {
