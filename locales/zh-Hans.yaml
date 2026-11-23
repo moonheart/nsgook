@@ -1,0 +1,265 @@
+appName: NSGook
+appStartNotice: NSGook 已在后台运行，选中文件后按空格键即可快速预览。
+
+trayTooltip: "NSGook v{version}"
+trayPreviewFile: 预览文件…
+trayOpenSettings: 设置…
+trayOpenDataFolder: 打开数据目录
+trayRunAtStartup: 开机自启
+trayCloseOnLostFocus: 失去焦点时关闭
+trayRestart: 重启
+trayQuit: 退出
+
+winStayTop: 置顶窗口
+winPreventClosing: 防止关闭（固定）
+winCantPreventClosing: 请先关闭“失去焦点时关闭”，或直接关闭窗口。
+winOpen: "打开 \"{name}\""
+winOpenWithApp: "使用 {app} 打开"
+winRun: "运行 {app}"
+winBrowseFolder: "浏览 \"{name}\""
+winOpenWith: 打开方式…
+winRevealInExplorer: 在文件管理器中显示
+winShare: 显示 / 分享
+winReload: 重新加载
+winMore: 更多
+winMaximize: 最大化
+winRestore: 还原
+winClose: 关闭
+winMoreCopyPath: 复制路径
+winMoreCopySuccess: 路径已复制到剪贴板
+winMoreSettings: 设置…
+winDropHint: 拖放文件或文件夹到此处即可预览
+winFileBlocked: 此文件类型已被扩展名过滤规则拦截。
+winPreviewFailed: "预览 \"{name}\" 失败"
+winLoading: 正在加载预览…
+
+settingsTitle: 设置
+settingsSearch: 搜索设置
+settingsSearchPlaceholder: 搜索…
+settingsResults: 搜索结果
+settingsEmpty: 没有匹配的设置项。
+settingsClose: 关闭
+
+settingsCatGeneral: 通用
+settingsCatAppearance: 外观
+settingsCatViewers: 查看器
+settingsCatExtensions: 扩展名过滤
+settingsCatPlugins: 插件列表
+
+settingsGrpBehavior: 行为
+settingsGrpStartup: 启动与托盘
+settingsGrpWindow: 窗口与材质
+settingsGrpLocale: 语言与主题
+settingsGrpText: 文本与代码查看器
+settingsGrpMarkdown: Markdown 查看器
+settingsGrpImage: 图片查看器
+settingsGrpMedia: 音视频查看器
+settingsGrpFont: 字体查看器
+settingsGrpFilterMode: 过滤模式
+settingsGrpFilterLists: 白名单与黑名单
+settingsGrpRegisteredPlugins: 已注册的查看器
+
+settingsShowTrayIcon: 显示托盘图标
+settingsShowTrayIconDesc: 在系统通知区域保留图标。
+settingsRunAtStartup: 登录时启动
+settingsRunAtStartupDesc: 登录系统时自动启动 NSGook。
+settingsCloseOnLostFocus: 失去焦点时关闭
+settingsCloseOnLostFocusDesc: 当其他应用获得焦点时自动关闭未固定的预览窗口。
+settingsAutoCloseHolding: 长按空格松开后关闭（≥ 750 ms）
+settingsAutoCloseHoldingDesc: 按住空格键偷窥文件，松手即关闭。
+settingsFocusOnOpen: 打开时聚焦预览窗口
+settingsFocusOnOpenDesc: 激活预览窗口，而不是将焦点留在文件管理器中。
+settingsTopmost: 默认置顶
+settingsTopmostDesc: 新打开的预览窗口始终保持在其他窗口之上。
+settingsShowInTaskbar: 在任务栏显示预览窗口
+settingsShowInTaskbarDesc: 在任务栏和窗口切换器中显示预览窗口。
+settingsShowReload: 标题栏显示刷新按钮
+settingsShowReloadDesc: 在“打开”按钮旁显示独立的重新加载按钮。
+settingsAutoReload: 文件修改时自动重载
+settingsAutoReloadDesc: 当磁盘上的文件变化时自动刷新预览内容。
+
+settingsUseTransparency: 半透明背景材质
+settingsUseTransparencyDesc: 支持时在预览窗口背后启用系统的亚克力 / 云母半透明效果。
+settingsBackdrop: 背景材质样式
+settingsBackdropDesc: 选择 Windows 11/10 下的窗口背景材质。
+backdropAuto: 自动
+backdropNone: 纯色（无）
+backdropMica: Mica（云母）
+backdropAcrylic: Acrylic（亚克力）
+backdropTabbed: Mica Alt（标签页）
+
+settingsTheme: 主题
+settingsThemeDesc: 跟随系统外观，或强制浅色 / 深色模式。
+themeSystem: 跟随系统
+themeLight: 浅色
+themeDark: 深色
+
+settingsLanguage: 语言
+settingsLanguageDesc: 菜单、设置和查看器控件的显示语言。
+langSystem: 跟随系统
+langEnglish: English
+langChinese: 简体中文
+
+settingsShowLineNumbers: 显示行号
+settingsShowLineNumbersDesc: 在文本与代码查看器中显示行号（Alt+L）。
+settingsWordWrap: 自动换行
+settingsWordWrapDesc: 长行自动折行以适应窗口宽度（Alt+Z）。
+settingsTextFontSize: 编辑器字号
+settingsTextFontSizeDesc: 纯文本与代码预览的字体大小（点）。
+
+settingsMarkdownToc: 显示目录大纲
+settingsMarkdownTocDesc: 打开 Markdown 文件时显示标题大纲侧栏（Ctrl+Shift+L）。
+
+settingsImageCheckered: 透明棋盘格背景
+settingsImageCheckeredDesc: 在透明图片背后显示棋盘格背景。
+settingsRenderSvgWeb: 使用网页引擎渲染 SVG
+settingsRenderSvgWebDesc: 可用时通过平台 WebView 渲染清晰可交互的 SVG 矢量图。
+
+settingsVideoLoop: 循环播放
+settingsVideoLoopDesc: 音视频播放结束时自动从头重播。
+settingsVideoVolume: 默认音量
+settingsVideoVolumeDesc: 媒体播放的初始音量百分比。
+
+settingsFontMode: 默认字体预览模式
+settingsFontModeDesc: 打开字体文件时默认显示示例文本或字形网格。
+fontModePangram: 示例排版
+fontModeGlyphs: 字形网格
+
+settingsUseAllowlist: 白名单模式
+settingsUseAllowlistDesc: 启用后仅允许白名单内的扩展名预览；否则使用黑名单模式。
+settingsAllowlist: 允许的扩展名
+settingsAllowlistDesc: 以逗号或分号分隔的扩展名（例如 .txt, .md, .png）。
+settingsBlocklist: 拦截的扩展名
+settingsBlocklistDesc: 以逗号或分号分隔的扩展名（例如 .insv）。
+settingsSaveLists: 应用过滤列表
+
+infoFolder: 文件夹
+infoDrive: 磁盘驱动器
+infoFile: 文件
+infoLastModified: "修改时间：{time}"
+infoSize: "大小：{size}"
+infoDriveSpace: "可用 {free} / 共 {total}"
+infoCounting: 正在统计项目…
+infoFolderCounts: "{dirs} 个文件夹，{files} 个文件"
+infoComputeHash: 计算 SHA-256
+infoComputingHash: 计算中…
+infoCopyHash: 复制 SHA-256
+infoHashCopied: SHA-256 已复制到剪贴板
+infoKind: 类型
+infoPermissions: 权限
+
+viewAsText: 以文本方式查看
+viewAsHex: 以二进制（十六进制）查看
+viewAsInfo: 查看文件 / 媒体信息
+
+imgZoomIn: 放大
+imgZoomOut: 缩小
+imgZoomFit: 适应窗口
+imgZoomActual: "1:1"
+imgRotateLeft: 向左旋转
+imgRotateRight: 向右旋转
+imgFlipH: 水平翻转
+imgFlipV: 垂直翻转
+imgCheckerToggle: 切换透明网格
+imgCopyImage: 复制图片
+imgCopied: 图片已复制到剪贴板
+imgMetadata: 图片详细信息
+
+textToggleLineNumbers: 行号（Alt+L）
+textToggleWordWrap: 自动换行（Alt+Z）
+textFind: 查找（Ctrl+F）
+textFindPlaceholder: 在文件中查找…
+textFindNext: 下一个匹配
+textFindPrev: 上一个匹配
+textToggleDiff: 差异对比视图
+textPrettyFormat: 格式化 JSON/XML
+textTruncated: "当前显示前 {shown}（共 {total}），点击加载完整文件。"
+textLoadFull: 加载完整文件
+textLinesLabel: "{lines} 行 · {encoding}"
+
+mdToggleToc: 目录大纲（Ctrl+Shift+L）
+mdToggleRaw: 源码 / 渲染
+mdTocTitle: 目录
+
+csvFilterPlaceholder: 筛选行…
+csvHasHeader: 首行为表头
+csvStats: "{rows} 行 × {cols} 列"
+
+webBack: 后退
+webForward: 前进
+webReload: 刷新
+webOpenBrowser: 在浏览器中打开
+webToggleSource: 源码 / 网页
+webUnavailable: 当前平台不支持 WebView，以下显示文件摘要。
+
+pdfSummary: PDF 文档
+pdfPages: 页数
+pdfVersion: PDF 版本
+pdfTitle: 标题
+pdfAuthor: 作者
+
+mediaPlay: 播放
+mediaPause: 暂停
+mediaMute: 静音
+mediaUnmute: 取消静音
+mediaLoop: 循环
+mediaSpeed: 倍速
+mediaNoLyrics: 暂无歌词
+
+archTreeMode: 树形视图
+archFlatMode: 列表视图
+archSearchPlaceholder: 搜索压缩包条目…
+archColName: 名称
+archColSize: 原始大小
+archColPacked: 压缩后
+archColModified: 修改时间
+archSummary: "{files} 个文件 · {uncompressed}（压缩后 {packed}）"
+archSelectHint: 选择条目即可内联预览文本或图片内容。
+archEntryTooLarge: 条目体积过大，无法内联预览。
+archBinaryEntry: 二进制条目（{size}）。
+
+fontSpecimen: 示例排版
+fontGlyphs: 字形网格
+fontSamplePlaceholder: 输入自定义预览文本…
+fontFamily: 字体家族
+fontStyle: 样式
+fontVersion: 版本
+fontGlyphCount: 字形数
+fontCopiedGlyph: 已复制“{glyph}” ({code})
+
+hexOffset: 偏移
+hexGoToPlaceholder: 十六进制偏移（如 0x1A0）
+hexGoTo: 跳转
+hexInspector: 数据解析器
+hexEncoding: UTF-8 / ASCII
+hexSize: "总大小：{size}（{bytes} 字节）"
+
+devSummary: 摘要
+devSections: 节区
+devImports: 导入表
+devExports: 导出表
+devSymbols: 符号表
+devModules: 模块
+devStreams: 流
+devTables: 数据表
+devSlides: 幻灯片
+devSheets: 工作表
+devAttachments: 附件
+devPermissions: 权限
+devRawDetails: 详细信息
+devValid: 有效
+devExpired: 已过期
+devNotYetValid: 尚未生效
+
+modelWireframe: 线框
+modelShaded: 着色
+modelResetView: 重置视角
+modelStats: "{vertices} 顶点 · {faces} 面"
+
+commonCopy: 复制
+commonCopied: 已复制到剪贴板
+commonError: 错误
+commonUnsupported: 暂不支持预览此格式。
+commonOpenExternal: 用外部程序打开
+commonEmpty: 空
+commonFilter: 筛选…

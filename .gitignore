@@ -1,0 +1,26 @@
+# NSGo build & cache outputs
+.nsgo/
+dist/
+UserData/
+
+# Binaries, test outputs & dumps
+*.exe
+*.dll
+*.syso
+*.test
+*.out
+*.prof
+*.dmp
+*.DMP
+*.log
+coverage.*
+
+# OS & editor files
+.DS_Store
+Thumbs.db
+Desktop.ini
+.vscode/
+.idea/
+*.swp
+*.swo
+*~

@@ -1,0 +1,267 @@
+appName:
+  message: NSGook
+  description: Application name.
+appStartNotice: NSGook is running in the background. Select a file and press Space to preview.
+
+trayTooltip: "NSGook v{version}"
+trayPreviewFile: Preview File…
+trayOpenSettings: Settings…
+trayOpenDataFolder: Open Data Folder
+trayRunAtStartup: Run at Startup
+trayCloseOnLostFocus: Close When Focus Lost
+trayRestart: Restart
+trayQuit: Quit
+
+winStayTop: Stay on Top
+winPreventClosing: Prevent Closing (Pin)
+winCantPreventClosing: Disable "Close When Focus Lost" to unpin, or close directly.
+winOpen: "Open \"{name}\""
+winOpenWithApp: "Open with {app}"
+winRun: "Run {app}"
+winBrowseFolder: "Browse \"{name}\""
+winOpenWith: Open With…
+winRevealInExplorer: Reveal in File Manager
+winShare: Reveal / Share
+winReload: Reload
+winMore: More
+winMaximize: Maximize
+winRestore: Restore
+winClose: Close
+winMoreCopyPath: Copy Path
+winMoreCopySuccess: Path copied to clipboard
+winMoreSettings: Settings…
+winDropHint: Drop a file or folder here to preview
+winFileBlocked: This file type is blocked by your extension filter.
+winPreviewFailed: "Failed to preview \"{name}\""
+winLoading: Loading preview…
+
+settingsTitle: Settings
+settingsSearch: Search settings
+settingsSearchPlaceholder: Search…
+settingsResults: Results
+settingsEmpty: No matching settings.
+settingsClose: Close
+
+settingsCatGeneral: General
+settingsCatAppearance: Appearance
+settingsCatViewers: Viewers
+settingsCatExtensions: Extensions
+settingsCatPlugins: Plugins
+
+settingsGrpBehavior: Behavior
+settingsGrpStartup: Startup & Tray
+settingsGrpWindow: Window & Material
+settingsGrpLocale: Language & Theme
+settingsGrpText: Text & Code Viewer
+settingsGrpMarkdown: Markdown Viewer
+settingsGrpImage: Image Viewer
+settingsGrpMedia: Audio & Video Viewer
+settingsGrpFont: Font Viewer
+settingsGrpFilterMode: Extension Filter
+settingsGrpFilterLists: Allowed & Blocked Lists
+settingsGrpRegisteredPlugins: Registered Viewers
+
+settingsShowTrayIcon: Show tray icon
+settingsShowTrayIconDesc: Keep an icon in the system notification area.
+settingsRunAtStartup: Run at login
+settingsRunAtStartupDesc: Start NSGook automatically when you sign in.
+settingsCloseOnLostFocus: Close when focus lost
+settingsCloseOnLostFocusDesc: Automatically close the unpinned preview window when another app takes focus.
+settingsAutoCloseHolding: Close on Space release (hold ≥ 750 ms)
+settingsAutoCloseHoldingDesc: Hold Space to peek at a file and release to close.
+settingsFocusOnOpen: Focus preview window on open
+settingsFocusOnOpenDesc: Activate the preview window instead of keeping focus in the file manager.
+settingsTopmost: Always on top by default
+settingsTopmostDesc: Keep new preview windows above other windows.
+settingsShowInTaskbar: Show preview window in taskbar
+settingsShowInTaskbarDesc: Display the preview window in the taskbar and window switcher.
+settingsShowReload: Show Reload button in title bar
+settingsShowReloadDesc: Add a dedicated reload button next to the Open action.
+settingsAutoReload: Auto-reload on file change
+settingsAutoReloadDesc: Refresh the preview automatically when the file changes on disk.
+
+settingsUseTransparency: Translucent backdrop
+settingsUseTransparencyDesc: Use system Acrylic/Mica translucency behind the preview window when supported.
+settingsBackdrop: Backdrop style
+settingsBackdropDesc: Choose the window backdrop material on Windows 11/10.
+backdropAuto: Auto
+backdropNone: Solid (None)
+backdropMica: Mica
+backdropAcrylic: Acrylic
+backdropTabbed: Mica Alt (Tabbed)
+
+settingsTheme: Theme
+settingsThemeDesc: Follow the system appearance or force light or dark mode.
+themeSystem: Follow system
+themeLight: Light
+themeDark: Dark
+
+settingsLanguage: Language
+settingsLanguageDesc: Display language for menus, settings, and viewer controls.
+langSystem: Follow system
+langEnglish: English
+langChinese: 简体中文
+
+settingsShowLineNumbers: Show line numbers
+settingsShowLineNumbersDesc: Display line numbers in the text and code viewer (Alt+L).
+settingsWordWrap: Word wrap
+settingsWordWrapDesc: Wrap long lines to fit the window width (Alt+Z).
+settingsTextFontSize: Editor font size
+settingsTextFontSizeDesc: Font size in points for plain text and code previews.
+
+settingsMarkdownToc: Show table of contents
+settingsMarkdownTocDesc: Display the heading outline sidebar when opening Markdown files (Ctrl+Shift+L).
+
+settingsImageCheckered: Checkered transparency grid
+settingsImageCheckeredDesc: Show a checkerboard behind transparent images.
+settingsRenderSvgWeb: Render SVG in web engine
+settingsRenderSvgWebDesc: Use the platform WebView when available for crisp interactive SVG previews.
+
+settingsVideoLoop: Loop playback
+settingsVideoLoopDesc: Restart video and audio playback automatically at the end.
+settingsVideoVolume: Default volume
+settingsVideoVolumeDesc: Initial volume percentage for media playback.
+
+settingsFontMode: Default font preview mode
+settingsFontModeDesc: Choose specimen pangrams or glyph grid on open.
+fontModePangram: Specimen
+fontModeGlyphs: Glyph Grid
+
+settingsUseAllowlist: Allowlist mode
+settingsUseAllowlistDesc: When enabled, only extensions in the allowlist can be previewed. Otherwise the blocklist is used.
+settingsAllowlist: Allowed extensions
+settingsAllowlistDesc: Comma or semicolon separated extensions (e.g. .txt, .md, .png).
+settingsBlocklist: Blocked extensions
+settingsBlocklistDesc: Comma or semicolon separated extensions (e.g. .insv).
+settingsSaveLists: Apply filter lists
+
+infoFolder: Folder
+infoDrive: Drive
+infoFile: File
+infoLastModified: "Modified: {time}"
+infoSize: "Size: {size}"
+infoDriveSpace: "{free} free of {total}"
+infoCounting: Counting items…
+infoFolderCounts: "{dirs} folders, {files} files"
+infoComputeHash: Compute SHA-256
+infoComputingHash: Computing…
+infoCopyHash: Copy SHA-256
+infoHashCopied: SHA-256 copied to clipboard
+infoKind: Type
+infoPermissions: Permissions
+
+viewAsText: View as Text
+viewAsHex: View as Binary (Hex)
+viewAsInfo: View File / Media Info
+
+imgZoomIn: Zoom In
+imgZoomOut: Zoom Out
+imgZoomFit: Fit
+imgZoomActual: "1:1"
+imgRotateLeft: Rotate Left
+imgRotateRight: Rotate Right
+imgFlipH: Flip Horizontal
+imgFlipV: Flip Vertical
+imgCheckerToggle: Toggle Transparency Grid
+imgCopyImage: Copy Image
+imgCopied: Image copied to clipboard
+imgMetadata: Image Details
+
+textToggleLineNumbers: Line Numbers (Alt+L)
+textToggleWordWrap: Word Wrap (Alt+Z)
+textFind: Find (Ctrl+F)
+textFindPlaceholder: Find in file…
+textFindNext: Next Match
+textFindPrev: Previous Match
+textToggleDiff: Diff View
+textPrettyFormat: Pretty Format JSON/XML
+textTruncated: "Showing first {shown} of {total}. Click to load full file."
+textLoadFull: Load Full File
+textLinesLabel: "{lines} lines · {encoding}"
+
+mdToggleToc: Table of Contents (Ctrl+Shift+L)
+mdToggleRaw: Source / Rendered
+mdTocTitle: Outline
+
+csvFilterPlaceholder: Filter rows…
+csvHasHeader: First row is header
+csvStats: "{rows} rows × {cols} columns"
+
+webBack: Back
+webForward: Forward
+webReload: Reload
+webOpenBrowser: Open in Browser
+webToggleSource: Source / Web
+webUnavailable: WebView is unavailable on this target; showing file summary.
+
+pdfSummary: PDF Document
+pdfPages: Pages
+pdfVersion: PDF Version
+pdfTitle: Title
+pdfAuthor: Author
+
+mediaPlay: Play
+mediaPause: Pause
+mediaMute: Mute
+mediaUnmute: Unmute
+mediaLoop: Loop
+mediaSpeed: Speed
+mediaNoLyrics: No lyrics
+
+archTreeMode: Tree View
+archFlatMode: List View
+archSearchPlaceholder: Search archive entries…
+archColName: Name
+archColSize: Size
+archColPacked: Packed
+archColModified: Modified
+archSummary: "{files} files · {uncompressed} ({packed} packed)"
+archSelectHint: Select an entry to preview its text or image contents.
+archEntryTooLarge: Entry is too large for inline preview.
+archBinaryEntry: Binary entry ({size}).
+
+fontSpecimen: Specimen
+fontGlyphs: Glyphs
+fontSamplePlaceholder: Type custom preview text…
+fontFamily: Family
+fontStyle: Style
+fontVersion: Version
+fontGlyphCount: Glyphs
+fontCopiedGlyph: Copied "{glyph}" ({code})
+
+hexOffset: Offset
+hexGoToPlaceholder: Hex offset (e.g. 0x1A0)
+hexGoTo: Go
+hexInspector: Data Inspector
+hexEncoding: UTF-8 / ASCII
+hexSize: "Total: {size} ({bytes} bytes)"
+
+devSummary: Summary
+devSections: Sections
+devImports: Imports
+devExports: Exports
+devSymbols: Symbols
+devModules: Modules
+devStreams: Streams
+devTables: Tables
+devSlides: Slides
+devSheets: Sheets
+devAttachments: Attachments
+devPermissions: Permissions
+devRawDetails: Details
+devValid: Valid
+devExpired: Expired
+devNotYetValid: Not Yet Valid
+
+modelWireframe: Wireframe
+modelShaded: Shaded
+modelResetView: Reset View
+modelStats: "{vertices} vertices · {faces} faces"
+
+commonCopy: Copy
+commonCopied: Copied to clipboard
+commonError: Error
+commonUnsupported: Preview is unavailable for this format.
+commonOpenExternal: Open Externally
+commonEmpty: Empty
+commonFilter: Filter…

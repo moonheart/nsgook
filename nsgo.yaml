@@ -1,0 +1,13 @@
+name: NSGook
+id: dev.nsgook.app
+version: 0.1.0
+
+icon:
+  png: assets/Icon.png
+
+dev:
+  target: native
+
+build:
+  output: dist
+  targets: [windows_x64]
