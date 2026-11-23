@@ -1,8 +1,13 @@
 package videoviewer
 
 import (
+	"crypto/rand"
+	"encoding/hex"
 	"fmt"
+	"net"
+	"net/http"
 	"path/filepath"
+	"strings"
 	"sync/atomic"
 	"time"
 
@@ -83,6 +88,30 @@ func (Plugin) View(cx *core.Scope, path string, ctx *viewer.Context) core.Node {
 		if ctx.IsReleasing() {
 			stopped.Store(true)
 		}
+	})
+
+	// NSGo's Windows video engine uses Media Foundation. On systems where its
+	// source resolver or decoders fail, fall back to the web engine, which
+	// ships its own media stack and is already part of the app.
+	webURL := core.NewSignal(cx, "")
+	var webStop func()
+	startWebFallback := func() {
+		if stopped.Load() || webURL.GetUntracked() != "" || !cx.Env().HasWebView() {
+			return
+		}
+		urlStr, stop, err := serveLocalVideo(path)
+		if err != nil {
+			return
+		}
+		webStop = stop
+		webURL.Set(urlStr)
+	}
+	cx.Cleanup(func() {
+		if webStop != nil {
+			webStop()
+			webStop = nil
+		}
+		webURL.Set("")
 	})
 
 	go func() {
@@ -199,6 +228,9 @@ func (Plugin) View(cx *core.Scope, path string, ctx *viewer.Context) core.Node {
 		OnError: func(err error) {
 			if err != nil {
 				mediaErr.Set(err.Error())
+				if !isAudio {
+					startWebFallback()
+				}
 			}
 		},
 		Style: func() core.Style {
@@ -551,21 +583,93 @@ func (Plugin) View(cx *core.Scope, path string, ctx *viewer.Context) core.Node {
 		},
 		Children: []core.Node{
 			core.Show{
-				When: func() bool { return mediaErr.Get() != "" },
-				Then: func(cx *core.Scope) core.Node {
-					return pluginui.EmptyState(cx, lucide.VideoOff, locales.For(cx).CommonError(), mediaErr.Get())
+				When: func() bool { return webURL.Get() != "" },
+				Then: func(*core.Scope) core.Node {
+					return core.WebView{
+						Source:    core.WebSrc(webURL.Get()),
+						Incognito: true,
+						PinchZoom: true,
+						Style: core.Style{
+							FlexGrow:   1,
+							FlexShrink: 1,
+							MinWidth:   core.Pt(0),
+							MinHeight:  core.Pt(0),
+							Width:      core.Pct(100),
+							Height:     core.Pct(100),
+						},
+					}
 				},
-				Else: func(*core.Scope) core.Node { return playerNode },
+				Else: func(cx *core.Scope) core.Node {
+					return core.Show{
+						When: func() bool { return mediaErr.Get() != "" },
+						Then: func(cx *core.Scope) core.Node {
+							return pluginui.EmptyState(cx, lucide.VideoOff, locales.For(cx).CommonError(), mediaErr.Get())
+						},
+						Else: func(*core.Scope) core.Node { return playerNode },
+					}
+				},
 			},
-			core.View{
-				Style: core.Style{
-					Position: core.Absolute,
-					Left:     core.Pt(14),
-					Right:    core.Pt(14),
-					Bottom:   core.Pt(14),
+			core.Show{
+				When: func() bool { return webURL.Get() == "" },
+				Then: func(*core.Scope) core.Node {
+					return core.View{
+						Style: core.Style{
+							Position: core.Absolute,
+							Left:     core.Pt(14),
+							Right:    core.Pt(14),
+							Bottom:   core.Pt(14),
+						},
+						Children: []core.Node{controlsBar},
+					}
 				},
-				Children: []core.Node{controlsBar},
 			},
 		},
+	}
+}
+
+// serveLocalVideo serves the file to the web engine with a random token path,
+// keeping special characters out of the URL and supporting range requests.
+func serveLocalVideo(path string) (urlStr string, stop func(), err error) {
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		return "", nil, err
+	}
+	var tok [16]byte
+	_, _ = rand.Read(tok[:])
+	secretPath := "/" + hex.EncodeToString(tok[:])
+
+	srv := &http.Server{Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != secretPath {
+			http.NotFound(w, r)
+			return
+		}
+		w.Header().Set("Content-Type", videoContentType(path))
+		w.Header().Set("Cache-Control", "no-store")
+		http.ServeFile(w, r, path)
+	})}
+	go func() { _ = srv.Serve(ln) }()
+
+	return "http://" + ln.Addr().String() + secretPath, func() {
+		_ = srv.Close()
+		_ = ln.Close()
+	}, nil
+}
+
+func videoContentType(path string) string {
+	switch strings.ToLower(filepath.Ext(path)) {
+	case ".mp4", ".m4v":
+		return "video/mp4"
+	case ".webm":
+		return "video/webm"
+	case ".mov":
+		return "video/quicktime"
+	case ".avi":
+		return "video/x-msvideo"
+	case ".mkv":
+		return "video/x-matroska"
+	case ".ogv", ".ogg":
+		return "video/ogg"
+	default:
+		return "application/octet-stream"
 	}
 }
