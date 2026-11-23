@@ -51,6 +51,7 @@ type Report struct {
 	BadgeAccent string
 	Sections    []Section
 	Tabs        []ReportTab
+	IconData    []byte
 	ImageData   []byte
 	BodyTitle   string
 	BodyText    string
@@ -140,9 +141,17 @@ func renderReportViewer(
 					var children []core.Node
 
 					// Header badges & thumbnail preview if present.
-					if len(r.Badges) > 0 || r.BadgeAccent != "" {
+					if len(r.Badges) > 0 || r.BadgeAccent != "" || len(r.IconData) > 0 {
 						var badgeNodes []core.Node
-						badgeNodes = append(badgeNodes, ui.IconOf(icon, 16, colors.Accent))
+						if len(r.IconData) > 0 {
+							badgeNodes = append(badgeNodes, core.Image{
+								Source:     core.ImageSource{Data: r.IconData},
+								ResizeMode: core.Contain,
+								Style:      core.Style{Width: core.Pt(28), Height: core.Pt(28), FlexShrink: 0},
+							})
+						} else {
+							badgeNodes = append(badgeNodes, ui.IconOf(icon, 16, colors.Accent))
+						}
 						if r.BadgeAccent != "" {
 							badgeNodes = append(badgeNodes, ui.Badge{Text: r.BadgeAccent, Variant: ui.BadgeAccent})
 						}

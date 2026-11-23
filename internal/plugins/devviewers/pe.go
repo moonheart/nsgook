@@ -1,9 +1,12 @@
 package devviewers
 
 import (
+	"bytes"
 	"debug/pe"
 	"fmt"
+	"image/png"
 	"os"
+	"path/filepath"
 	"strconv"
 	"time"
 
@@ -18,6 +21,26 @@ import (
 var peExts = map[string]bool{
 	".exe": true, ".dll": true, ".sys": true, ".ocx": true,
 	".cpl": true, ".scr": true, ".drv": true, ".efi": true,
+}
+
+// peWindowsInfo holds the shell-grade metadata Windows shows for an executable.
+type peWindowsInfo struct {
+	FileType       string
+	Description    string
+	Version        string
+	ProductName    string
+	ProductVersion string
+	Company        string
+	Copyright      string
+	OriginalName   string
+	Language       string
+	Created        string
+	Modified       string
+	Accessed       string
+	SizeOnDisk     uint64
+	Attributes     string
+	Security       string
+	Signature      string
 }
 
 // PEPlugin inspects Windows Portable Executable binaries (.exe, .dll, .sys, .ocx, .efi, ...).
@@ -36,12 +59,31 @@ func (PEPlugin) Prepare(path string, ctx *viewer.Context) {
 func (PEPlugin) View(cx *core.Scope, path string, ctx *viewer.Context) core.Node {
 	tr := locales.For(cx)
 	return renderReportViewer(cx, path, ctx, lucide.Cpu, func() (*Report, error) {
-		return InspectPE(path, tr.DevSummary(), tr.DevSections(), tr.DevImports(), tr.DevSymbols())
+		report, err := InspectPE(path, tr.DevSummary(), tr.DevSections(), tr.DevImports(), tr.DevSymbols(), tr.DevRawDetails())
+		if err == nil && report != nil {
+			report.IconData = shellIconPNG(ctx, path, 64)
+		}
+		return report, err
 	})
 }
 
-// InspectPE parses PE headers, sections, imports, and COFF symbols using stdlib debug/pe.
-func InspectPE(path, titleSummary, titleSections, titleImports, titleSymbols string) (*Report, error) {
+func shellIconPNG(ctx *viewer.Context, path string, size int) []byte {
+	if ctx == nil || ctx.Sys == nil {
+		return nil
+	}
+	img, err := ctx.Sys.GetShellThumbnail(path, size)
+	if err != nil || img == nil {
+		return nil
+	}
+	var buf bytes.Buffer
+	if err := png.Encode(&buf, img); err != nil {
+		return nil
+	}
+	return buf.Bytes()
+}
+
+// InspectPE parses PE headers, version resources, shell metadata, signatures, sections, imports, and symbols.
+func InspectPE(path, titleSummary, titleSections, titleImports, titleSymbols, titleDetails string) (*Report, error) {
 	st, err := os.Stat(path)
 	if err != nil {
 		return nil, err
@@ -51,6 +93,8 @@ func InspectPE(path, titleSummary, titleSections, titleImports, titleSymbols str
 		return nil, err
 	}
 	defer f.Close()
+
+	win := readPEWindowsInfo(path, st)
 
 	arch := peMachineName(f.Machine)
 	subsys := "Unknown"
@@ -73,13 +117,55 @@ func InspectPE(path, titleSummary, titleSections, titleImports, titleSymbols str
 		bitness = "64-bit"
 	}
 
-	summary := []pluginui.KV{
+	techRows := []pluginui.KV{
 		{Key: "Architecture", Value: arch + " (" + bitness + ")"},
 		{Key: "Kind", Value: kind},
 		{Key: "Subsystem", Value: subsys},
 		{Key: "Timestamp", Value: ts},
-		{Key: "File Size", Value: viewer.FormatBytes(uint64(max(0, st.Size())))},
 		{Key: "Sections", Value: strconv.Itoa(len(f.Sections))},
+	}
+
+	summary := make([]pluginui.KV, 0, 9)
+	addSummary := func(key, value string) {
+		if value != "" {
+			summary = append(summary, pluginui.KV{Key: key, Value: value})
+		}
+	}
+	addSummary("File Description", win.Description)
+	fileType := win.FileType
+	if fileType == "" {
+		fileType = kind
+	}
+	addSummary("Type", fileType)
+	addSummary("File Version", win.Version)
+	addSummary("Product Name", win.ProductName)
+	addSummary("Product Version", win.ProductVersion)
+	addSummary("Company", win.Company)
+	addSummary("Copyright", win.Copyright)
+	addSummary("Original Filename", win.OriginalName)
+	addSummary("Language", win.Language)
+	if len(summary) == 0 {
+		summary = techRows
+	}
+
+	details := []pluginui.KV{
+		{Key: "Location", Value: filepath.Dir(path)},
+		{Key: "Size", Value: fmt.Sprintf("%s (%d B)", viewer.FormatBytes(uint64(max(0, st.Size()))), st.Size())},
+	}
+	if win.SizeOnDisk > 0 {
+		details = append(details, pluginui.KV{Key: "Size on Disk", Value: fmt.Sprintf("%s (%d B)", viewer.FormatBytes(win.SizeOnDisk), win.SizeOnDisk)})
+	}
+	for _, row := range []pluginui.KV{
+		{Key: "Created", Value: win.Created},
+		{Key: "Modified", Value: win.Modified},
+		{Key: "Accessed", Value: win.Accessed},
+		{Key: "Attributes", Value: win.Attributes},
+		{Key: "Security", Value: win.Security},
+		{Key: "Digital Signature", Value: win.Signature},
+	} {
+		if row.Value != "" {
+			details = append(details, row)
+		}
 	}
 
 	secRows := make([]pluginui.KV, 0, len(f.Sections))
@@ -111,6 +197,7 @@ func InspectPE(path, titleSummary, titleSections, titleImports, titleSymbols str
 	}
 
 	tabs := []ReportTab{
+		{ID: "pe-details", Label: fmt.Sprintf("PE %s", titleDetails), Sections: []Section{{Title: fmt.Sprintf("PE %s", titleDetails), Rows: techRows}}},
 		{ID: "sections", Label: fmt.Sprintf("%s (%d)", titleSections, len(secRows)), Sections: []Section{{Title: titleSections, Rows: secRows}}},
 	}
 	if len(impRows) > 0 {
@@ -120,11 +207,23 @@ func InspectPE(path, titleSummary, titleSections, titleImports, titleSymbols str
 		tabs = append(tabs, ReportTab{ID: "symbols", Label: fmt.Sprintf("%s (%d)", titleSymbols, len(symRows)), Sections: []Section{{Title: titleSymbols, Rows: symRows}}})
 	}
 
+	titleSuffix := arch + " " + kind
+	if win.Description != "" {
+		titleSuffix = win.Description
+	}
+	badges := []string{arch, bitness, kind, subsys}
+	if win.Signature == "Valid" {
+		badges = append(badges, "Signed")
+	}
+
 	return &Report{
-		TitleSuffix: arch + " " + kind,
-		Badges:      []string{arch, bitness, kind, subsys},
-		Sections:    []Section{{Title: titleSummary, Rows: summary}},
-		Tabs:        tabs,
+		TitleSuffix: titleSuffix,
+		Badges:      badges,
+		Sections: []Section{
+			{Title: titleSummary, Rows: summary},
+			{Title: titleDetails, Rows: details},
+		},
+		Tabs: tabs,
 	}, nil
 }
 
