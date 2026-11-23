@@ -131,6 +131,12 @@ func DecodeText(raw []byte) (string, string) {
 	if len(raw) == 0 {
 		return "", "UTF-8"
 	}
+	// Capped previews can cut the final multi-byte rune in half. Drop that
+	// incomplete tail so the whole buffer does not fall through to a legacy
+	// single-byte encoding and turn into mojibake.
+	if !utf8.Valid(raw) {
+		raw = trimIncompleteUTF8Suffix(raw)
+	}
 	if bytes.HasPrefix(raw, []byte{0xEF, 0xBB, 0xBF}) {
 		return string(raw[3:]), "UTF-8 BOM"
 	}
@@ -161,11 +167,8 @@ func DecodeText(raw []byte) (string, string) {
 		{"EUC-KR", korean.EUCKR.NewDecoder().Bytes},
 	}
 	for _, cand := range candidates {
-		if b, err := cand.dec(raw); err == nil {
-			s := string(b)
-			if !strings.ContainsRune(s, utf8.RuneError) {
-				return s, cand.name
-			}
+		if s, ok := decodeLegacyText(cand.dec, raw); ok {
+			return s, cand.name
 		}
 	}
 	if s, err := charmap.Windows1252.NewDecoder().Bytes(raw); err == nil {
@@ -174,12 +177,64 @@ func DecodeText(raw []byte) (string, string) {
 	return strings.ToValidUTF8(string(raw), "\uFFFD"), "Binary/Lossy"
 }
 
+// decodeLegacyText decodes raw with dec, retrying after dropping up to three
+// trailing bytes when a capped read cut the final multi-byte character.
+func decodeLegacyText(dec func([]byte) ([]byte, error), raw []byte) (string, bool) {
+	for trim := 0; trim <= 3 && trim < len(raw); trim++ {
+		b, err := dec(raw[:len(raw)-trim])
+		if err != nil {
+			continue
+		}
+		s := string(b)
+		if !strings.ContainsRune(s, utf8.RuneError) {
+			return s, true
+		}
+	}
+	return "", false
+}
+
+// trimIncompleteUTF8Suffix removes the leading bytes of a truncated final
+// UTF-8 sequence. It only trims when the remaining prefix is valid UTF-8 and
+// the removed bytes form an incomplete, otherwise well-formed sequence.
+func trimIncompleteUTF8Suffix(raw []byte) []byte {
+	for n := 1; n <= 3 && n < len(raw); n++ {
+		prefix := raw[:len(raw)-n]
+		if !utf8.Valid(prefix) {
+			continue
+		}
+		suffix := raw[len(prefix):]
+		need := 0
+		switch lead := suffix[0]; {
+		case lead >= 0xC2 && lead <= 0xDF:
+			need = 2
+		case lead >= 0xE0 && lead <= 0xEF:
+			need = 3
+		case lead >= 0xF0 && lead <= 0xF4:
+			need = 4
+		default:
+			return raw
+		}
+		if len(suffix) >= need {
+			return raw
+		}
+		for _, c := range suffix[1:] {
+			if c < 0x80 || c > 0xBF {
+				return raw
+			}
+		}
+		return prefix
+	}
+	return raw
+}
+
 func detectUTF16NoBOM(raw []byte) (string, bool) {
 	if len(raw) < 4 {
 		return "", false
 	}
 	evenNull, oddNull := 0, 0
-	limit := min(len(raw), 512) &^ 1
+	// Probe beyond the header: UTF-16-looking headers (e.g. MDict .mdx dictionaries)
+	// must not make an otherwise binary file look like text.
+	limit := min(len(raw), probeSize) &^ 1
 	for i := 0; i < limit; i += 2 {
 		if raw[i] == 0 && raw[i+1] != 0 {
 			evenNull++

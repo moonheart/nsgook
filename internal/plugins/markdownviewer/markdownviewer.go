@@ -36,7 +36,13 @@ func (Plugin) CanHandle(path string) bool {
 	if path == "" || strings.HasPrefix(path, "::") {
 		return false
 	}
-	return isSupportedExt(filepath.Ext(path))
+	if !isSupportedExt(filepath.Ext(path)) {
+		return false
+	}
+	// .mdx is shared with MDict dictionaries, which are binary. Probe the
+	// content so a dictionary falls through to the generic file viewers
+	// instead of freezing the UI by rendering megabytes of decoded binary.
+	return textviewer.IsLikelyTextFile(path)
 }
 
 func (Plugin) Prepare(path string, ctx *viewer.Context) {
