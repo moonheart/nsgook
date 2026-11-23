@@ -1,0 +1,7 @@
+# Check text out as LF everywhere: the generated Go files are compared
+# byte-exact by `go tool nsgo check`, and a CRLF checkout makes them stale
+# on Windows runners (core.autocrlf=true).
+* text=auto eol=lf
+*.png binary
+*.ico binary
+*.exe binary
