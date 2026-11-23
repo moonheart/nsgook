@@ -10,9 +10,11 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync/atomic"
 
 	"github.com/nsgo-dev/nsgo/core"
 	"github.com/nsgo-dev/nsgo/icons/lucide"
+	"github.com/nsgo-dev/nsgo/ui"
 
 	"nsgook/internal/plugins/pluginui"
 	"nsgook/internal/viewer"
@@ -53,12 +55,142 @@ func (MediaInfoPlugin) ExtendedMenuItems(cx *core.Scope, _ string, ctx *viewer.C
 
 func (MediaInfoPlugin) View(cx *core.Scope, path string, ctx *viewer.Context) core.Node {
 	tr := locales.For(cx)
-	return renderReportViewer(cx, path, ctx, lucide.Info, func() (*Report, error) {
+	colors := ui.ColorsOf(cx)
+
+	hashState := core.NewSignal(cx, "") // "", "computing", or hex digest
+	var stopped atomic.Bool
+	cx.Cleanup(func() {
+		stopped.Store(true)
+	})
+	cx.Effect(func() {
+		if ctx.IsReleasing() {
+			stopped.Store(true)
+		}
+	})
+
+	computeHash := func() {
+		if hashState.GetUntracked() != "" {
+			return
+		}
+		hashState.Set("computing")
+		go func() {
+			sum, err := hashFileSHA256(path, stopped.Load)
+			if stopped.Load() {
+				return
+			}
+			cx.Post(func() {
+				if stopped.Load() {
+					return
+				}
+				if err != nil {
+					hashState.Set("")
+					if ctx.Toast != nil {
+						ctx.Toast(ui.ToastError, err.Error())
+					}
+					return
+				}
+				hashState.Set(sum)
+			})
+		}()
+	}
+
+	report := renderReportViewer(cx, path, ctx, lucide.Info, func() (*Report, error) {
 		return InspectMediaAndFile(path, tr.DevSummary(), tr.DevRawDetails())
+	})
+
+	hashRow := core.View{
+		Style: core.Style{
+			Direction:  core.Row,
+			AlignItems: core.AlignCenter,
+			Gap:        8,
+			Padding:    core.Symmetric(8, 14),
+			Borders:    core.Edges{Top: 1},
+			FlexShrink: 0,
+		},
+		StyleFunc: func() core.Style {
+			return core.Style{
+				Background:  ui.Alpha(colors.Surface(), 0.78),
+				BorderColor: colors.Line(),
+			}
+		},
+		Children: []core.Node{
+			core.Text{
+				Content:   "SHA-256",
+				Style:     core.Style{Width: core.Pt(130), FlexShrink: 0, FontSize: 12, FontWeight: ui.Medium},
+				StyleFunc: ui.Colored(colors.Muted),
+			},
+			core.Show{
+				When: func() bool { return hashState.Get() == "" },
+				Then: func(cx *core.Scope) core.Node {
+					return ui.Button{
+						Text:    locales.For(cx).InfoComputeHash(),
+						Icon:    lucide.FingerprintPattern,
+						Variant: ui.ButtonSecondary,
+						Size:    ui.SizeSmall,
+						OnPress: computeHash,
+					}
+				},
+			},
+			core.Show{
+				When: func() bool { return hashState.Get() == "computing" },
+				Then: func(cx *core.Scope) core.Node {
+					return core.View{
+						Style: core.Style{Direction: core.Row, AlignItems: core.AlignCenter, Gap: 6},
+						Children: []core.Node{
+							ui.Spinner{Size: 14},
+							ui.Text(locales.For(cx).InfoComputingHash(), 12, ui.Regular, colors.Muted),
+						},
+					}
+				},
+			},
+			core.Show{
+				When: func() bool {
+					s := hashState.Get()
+					return s != "" && s != "computing"
+				},
+				Then: func(cx *core.Scope) core.Node {
+					return core.View{
+						Style: core.Style{Direction: core.Row, AlignItems: core.AlignCenter, Gap: 6, FlexGrow: 1, FlexShrink: 1, MinWidth: core.Pt(0)},
+						Children: []core.Node{
+							core.Text{
+								ContentFunc: func() string { return hashState.Get() },
+								MaxLines:    1,
+								Selectable:  core.SelectableOn,
+								Style:       core.Style{FontSize: 11, FontFamily: ui.Mono, FlexShrink: 1},
+								StyleFunc:   ui.Colored(colors.Text),
+							},
+							pluginui.IconButton{
+								Icon:     lucide.Copy,
+								Label:    locales.For(cx).InfoCopyHash(),
+								Size:     24,
+								IconSize: 13,
+								OnPress: func() {
+									cx.SetClipboard(hashState.GetUntracked())
+									if ctx.Toast != nil {
+										ctx.Toast(ui.ToastSuccess, locales.For(cx).InfoHashCopied())
+									}
+								},
+							},
+						},
+					}
+				},
+			},
+		},
+	}
+
+	return pluginui.Fill(core.View{
+		Style: core.Style{
+			Direction:  core.Column,
+			FlexGrow:   1,
+			FlexShrink: 1,
+			MinWidth:   core.Pt(0),
+			MinHeight:  core.Pt(0),
+		},
+		Children: []core.Node{report, hashRow},
 	})
 }
 
-// InspectMediaAndFile inspects container headers, magic signature, MIME type, timestamps, and SHA-256.
+// InspectMediaAndFile inspects container headers, magic signature, MIME type, timestamps, and file metadata.
 func InspectMediaAndFile(path, titleSummary, titleDetails string) (*Report, error) {
 	st, err := os.Stat(path)
 	if err != nil {
@@ -74,11 +206,6 @@ func InspectMediaAndFile(path, titleSummary, titleDetails string) (*Report, erro
 	n, _ := io.ReadFull(f, head)
 	head = head[:n]
 
-	_, _ = f.Seek(0, io.SeekStart)
-	h := sha256.New()
-	_, _ = io.Copy(h, f)
-	sum := strings.ToUpper(hex.EncodeToString(h.Sum(nil)))
-
 	mimeType := http.DetectContentType(head)
 	container, details := sniffContainer(head)
 
@@ -90,7 +217,6 @@ func InspectMediaAndFile(path, titleSummary, titleDetails string) (*Report, erro
 		{Key: "Size", Value: fmt.Sprintf("%s (%d B)", viewer.FormatBytes(uint64(max(0, st.Size()))), st.Size())},
 		{Key: "Modified", Value: st.ModTime().Format("2006-01-02 15:04:05")},
 		{Key: "Permissions", Value: st.Mode().String()},
-		{Key: "SHA-256", Value: sum},
 	}
 
 	secs := []Section{{Title: titleSummary, Rows: summary}}
@@ -102,6 +228,35 @@ func InspectMediaAndFile(path, titleSummary, titleDetails string) (*Report, erro
 		Badges:      []string{container, mimeType},
 		Sections:    secs,
 	}, nil
+}
+
+// hashFileSHA256 computes the uppercase SHA-256 of path, stopping early when
+// cancelled reports true.
+func hashFileSHA256(path string, cancelled func() bool) (string, error) {
+	f, err := os.Open(path)
+	if err != nil {
+		return "", err
+	}
+	defer f.Close()
+
+	h := sha256.New()
+	buf := make([]byte, 64*1024)
+	for {
+		if cancelled != nil && cancelled() {
+			return "", nil
+		}
+		n, readErr := f.Read(buf)
+		if n > 0 {
+			_, _ = h.Write(buf[:n])
+		}
+		if readErr == io.EOF {
+			break
+		}
+		if readErr != nil {
+			return "", readErr
+		}
+	}
+	return strings.ToUpper(hex.EncodeToString(h.Sum(nil))), nil
 }
 
 func sniffContainer(b []byte) (string, []pluginui.KV) {
