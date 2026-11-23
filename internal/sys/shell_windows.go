@@ -594,18 +594,6 @@ func toLongPath(path string) string {
 	return path
 }
 
-func getSelectedFromEverything(fg uintptr) string {
-	var found string
-	enumChildWindows(fg, func(child uintptr) bool {
-		if getWindowClass(child) == "EVERYTHING_RESULT_LIST_FOCUS" {
-			found = getWindowText(child)
-			return false
-		}
-		return true
-	})
-	return found
-}
-
 // getSelectedFromDialog reads the current folder from the dialog's Address toolbar
 // and combines it with the focused item's name via UI Automation (no DLL injection).
 func getSelectedFromDialog(fg uintptr) string {
