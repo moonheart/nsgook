@@ -196,16 +196,20 @@ func serveLocalPDF(path string) (urlStr string, stop func(), err error) {
 	}
 	var tok [16]byte
 	_, _ = rand.Read(tok[:])
-	secretPath := "/" + hex.EncodeToString(tok[:]) + "/" + filepath.Base(path)
+	// Keep the URL to the token only: ServeMux patterns cannot contain spaces,
+	// so embedding the file name would panic for names such as "paper (2).pdf".
+	secretPath := "/" + hex.EncodeToString(tok[:])
 
-	mux := http.NewServeMux()
-	mux.HandleFunc(secretPath, func(w http.ResponseWriter, r *http.Request) {
+	srv := &http.Server{Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != secretPath {
+			http.NotFound(w, r)
+			return
+		}
 		w.Header().Set("Content-Type", "application/pdf")
 		w.Header().Set("Content-Disposition", "inline")
 		w.Header().Set("Cache-Control", "no-store")
 		http.ServeFile(w, r, path)
-	})
-	srv := &http.Server{Handler: mux}
+	})}
 	go func() { _ = srv.Serve(ln) }()
 
 	return "http://" + ln.Addr().String() + secretPath, func() {

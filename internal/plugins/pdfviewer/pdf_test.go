@@ -1,8 +1,13 @@
 package pdfviewer
 
 import (
+	"bytes"
+	"io"
+	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -22,5 +27,52 @@ func TestInspectPDF(t *testing.T) {
 	}
 	if meta.Title != "Annual Report" || meta.Author != "Ada Lovelace" {
 		t.Fatalf("unexpected pdf metadata: %+v", meta)
+	}
+}
+
+func TestServeLocalPDFSpecialFilename(t *testing.T) {
+	dir := t.TempDir()
+	p := filepath.Join(dir, "20286 - 编译原理（第2版） (final).pdf")
+	content := []byte("%PDF-1.7\n% local preview payload\n")
+	if err := os.WriteFile(p, content, 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	urlStr, stop, err := serveLocalPDF(p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer stop()
+
+	resp, err := http.Get(urlStr)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("status = %d, want 200", resp.StatusCode)
+	}
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Equal(body, content) {
+		t.Fatalf("served %q, want %q", body, content)
+	}
+
+	u, err := url.Parse(urlStr)
+	if err != nil {
+		t.Fatal(err)
+	}
+	bad, err := http.Get("http://" + u.Host + "/not-the-token")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer bad.Body.Close()
+	if bad.StatusCode != http.StatusNotFound {
+		t.Fatalf("unknown path status = %d, want 404", bad.StatusCode)
+	}
+	if strings.Contains(urlStr, "编译原理") {
+		t.Fatalf("file name leaked into the local URL: %q", urlStr)
 	}
 }
