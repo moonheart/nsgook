@@ -257,7 +257,7 @@ func (Plugin) View(cx *core.Scope, path string, ctx *viewer.Context) core.Node {
 						Style:      core.Style{FontSize: 17, FontWeight: ui.Semibold, FlexShrink: 1},
 						StyleFunc:  ui.Colored(colors.Text),
 					},
-					ui.Badge{TextFunc: kindLabel, Variant: ui.BadgeInfo},
+					ui.Badge{TextFunc: kindLabel, Variant: ui.BadgeAccent},
 				},
 			},
 			core.Text{
