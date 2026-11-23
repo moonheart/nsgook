@@ -18,6 +18,9 @@ import (
 	"sort"
 	"strings"
 	"time"
+	"unicode/utf8"
+
+	"golang.org/x/text/encoding/simplifiedchinese"
 )
 
 const MaxInlinePreviewBytes int64 = 512 * 1024
@@ -250,7 +253,12 @@ func parseZipAt(p, format string, offset int64) (*Archive, error) {
 
 	entries := make([]*Entry, 0, len(zr.File))
 	for _, zf := range zr.File {
-		name := zf.Name
+		// Windows Explorer and other legacy ZIP writers store non-ASCII names
+		// in the system ANSI code page (GBK on Chinese Windows) without setting
+		// the UTF-8 flag. Decode those for display while keeping the raw name
+		// for looking the entry up in the archive.
+		rawName := zf.Name
+		name := decodeZipName(rawName)
 		targetPath := p
 		entries = append(entries, &Entry{
 			Path:       name,
@@ -273,7 +281,7 @@ func parseZipAt(p, format string, offset int64) (*Archive, error) {
 					return nil, err
 				}
 				for _, item := range z.File {
-					if item.Name == name {
+					if item.Name == rawName {
 						rc, err := item.Open()
 						if err != nil {
 							return nil, err
@@ -282,11 +290,25 @@ func parseZipAt(p, format string, offset int64) (*Archive, error) {
 						return io.ReadAll(io.LimitReader(rc, limit))
 					}
 				}
-				return nil, fmt.Errorf("entry %q not found", name)
+				return nil, fmt.Errorf("entry %q not found", rawName)
 			},
 		})
 	}
 	return finalizeArchive(format, entries), nil
+}
+
+// decodeZipName converts a legacy ZIP entry name to UTF-8. Go's archive/zip
+// leaves names raw when the UTF-8 flag is absent, which renders GBK names as
+// replacement characters in the UI.
+func decodeZipName(name string) string {
+	if utf8.ValidString(name) {
+		return name
+	}
+	if decoded, err := simplifiedchinese.GB18030.NewDecoder().String(name); err == nil &&
+		!strings.ContainsRune(decoded, utf8.RuneError) {
+		return decoded
+	}
+	return strings.ToValidUTF8(name, "\uFFFD")
 }
 
 func parseTarFile(p, format string) (*Archive, error) {

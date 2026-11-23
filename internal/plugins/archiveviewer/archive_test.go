@@ -10,6 +10,8 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+
+	"golang.org/x/text/encoding/simplifiedchinese"
 )
 
 func TestParseZipAndReadEntry(t *testing.T) {
@@ -40,6 +42,44 @@ func TestParseZipAndReadEntry(t *testing.T) {
 	got, err := entry.ReadFunc(1024)
 	if err != nil || string(got) != "hello zip archive" {
 		t.Fatalf("unexpected entry content: %q err=%v", got, err)
+	}
+}
+
+func TestParseZipLegacyGBKName(t *testing.T) {
+	dir := t.TempDir()
+	p := filepath.Join(dir, "legacy.zip")
+	gbkName, err := simplifiedchinese.GBK.NewEncoder().Bytes([]byte("小新padpro2025解bl文件/readme.txt"))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var buf bytes.Buffer
+	zw := zip.NewWriter(&buf)
+	hdr := &zip.FileHeader{Name: string(gbkName), Method: zip.Deflate, NonUTF8: true}
+	w, err := zw.CreateHeader(hdr)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, _ = w.Write([]byte("hello legacy zip"))
+	if err := zw.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(p, buf.Bytes(), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	a, err := OpenArchive(p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	const want = "小新padpro2025解bl文件/readme.txt"
+	entry := a.ByPath[want]
+	if entry == nil {
+		t.Fatalf("missing decoded GBK path %q; entries=%v", want, a.ByPath)
+	}
+	got, err := entry.ReadFunc(1024)
+	if err != nil || string(got) != "hello legacy zip" {
+		t.Fatalf("unexpected legacy entry content: %q err=%v", got, err)
 	}
 }
 
