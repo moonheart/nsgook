@@ -13,6 +13,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"sync"
 
 	"github.com/nsgo-dev/nsgo/core"
 	"github.com/nsgo-dev/nsgo/icons/lucide"
@@ -38,11 +39,41 @@ var (
 	reAuthor   = regexp.MustCompile(`/Author\s*\(([^)]{1,200})\)`)
 )
 
+// pdfMetaCache keeps the last few inspections: Prepare and View both read the
+// same metadata, and a large PDF otherwise gets read twice on the way to its
+// first page.
+var pdfMetaCache = struct {
+	sync.Mutex
+	entries map[string]PDFMeta
+}{entries: make(map[string]PDFMeta)}
+
 // InspectPDF extracts PDF version, approximate page count, title, and author in pure Go.
 func InspectPDF(path string) PDFMeta {
-	var meta PDFMeta
 	info, err := os.Stat(path)
+	key := path
 	if err == nil {
+		key = fmt.Sprintf("%s\x00%d\x00%d", path, info.Size(), info.ModTime().UnixNano())
+	}
+	pdfMetaCache.Lock()
+	meta, ok := pdfMetaCache.entries[key]
+	pdfMetaCache.Unlock()
+	if ok {
+		return meta
+	}
+
+	meta = inspectPDF(path, info)
+	pdfMetaCache.Lock()
+	if len(pdfMetaCache.entries) >= 32 {
+		clear(pdfMetaCache.entries)
+	}
+	pdfMetaCache.entries[key] = meta
+	pdfMetaCache.Unlock()
+	return meta
+}
+
+func inspectPDF(path string, info os.FileInfo) PDFMeta {
+	var meta PDFMeta
+	if info != nil {
 		meta.Size = uint64(max(0, info.Size()))
 	}
 	data, err := os.ReadFile(path)
