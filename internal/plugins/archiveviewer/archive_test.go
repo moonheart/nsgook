@@ -169,3 +169,47 @@ func TestParseTarGzAndASARAndPAK(t *testing.T) {
 		t.Fatalf("unexpected PAK read: %q err=%v", got, err)
 	}
 }
+
+func TestOpenArchiveStreaming(t *testing.T) {
+	dir := t.TempDir()
+	tgzPath := filepath.Join(dir, "stream.tar.gz")
+	var tgz bytes.Buffer
+	gw := gzip.NewWriter(&tgz)
+	tw := tar.NewWriter(gw)
+	for _, item := range []struct{ name, content string }{
+		{"a.txt", "alpha"},
+		{"b.txt", "beta"},
+		{"c.txt", "gamma"},
+	} {
+		_ = tw.WriteHeader(&tar.Header{Name: item.name, Mode: 0o644, Size: int64(len(item.content))})
+		_, _ = tw.Write([]byte(item.content))
+	}
+	_ = tw.Close()
+	_ = gw.Close()
+	if err := os.WriteFile(tgzPath, tgz.Bytes(), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	var counts []int
+	partial, err := OpenArchiveStreaming(tgzPath, ScanLimits{BatchEntries: 1, MaxEntries: 2}, func(a *Archive) bool {
+		counts = append(counts, a.FileCount)
+		return true
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(counts) == 0 || counts[0] != 1 {
+		t.Fatalf("streamed file counts = %v, want the first entry emitted immediately", counts)
+	}
+	if !partial.Truncated || partial.Scanning || partial.FileCount != 2 {
+		t.Fatalf("partial = truncated:%v scanning:%v files:%d, want a truncated 2-file index", partial.Truncated, partial.Scanning, partial.FileCount)
+	}
+	if got, err := partial.ByPath["a.txt"].ReadFunc(1024); err != nil || string(got) != "alpha" {
+		t.Fatalf("streamed entry read = %q err=%v", got, err)
+	}
+
+	full, err := OpenArchive(tgzPath)
+	if err != nil || full.FileCount != 3 || full.Truncated {
+		t.Fatalf("full archive = %+v err=%v", full, err)
+	}
+}

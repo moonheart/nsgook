@@ -75,7 +75,26 @@ func (Plugin) View(cx *core.Scope, path string, ctx *viewer.Context) core.Node {
 
 	ctx.IsBusy.Set(true)
 	go func() {
-		a, err := OpenArchive(path)
+		emitted := false
+		a, err := OpenArchiveStreaming(path, ScanLimits{
+			BatchEntries: 200,
+			MaxEntries:   20000,
+			Stop:         func() bool { return stopped.Load() },
+		}, func(partial *Archive) bool {
+			if stopped.Load() {
+				return false
+			}
+			emitted = true
+			cx.Post(func() {
+				if stopped.Load() {
+					return
+				}
+				archSig.Set(partial)
+				ctx.IsBusy.Set(false)
+				ctx.Title.Set(fmt.Sprintf("%s (%s)", viewer.DisplayName(path), partial.Format))
+			})
+			return true
+		})
 		if stopped.Load() {
 			return
 		}
@@ -85,11 +104,15 @@ func (Plugin) View(cx *core.Scope, path string, ctx *viewer.Context) core.Node {
 			}
 			ctx.IsBusy.Set(false)
 			if err != nil {
-				loadErr.Set(err.Error())
+				if !emitted {
+					loadErr.Set(err.Error())
+				}
 				return
 			}
-			archSig.Set(a)
-			ctx.Title.Set(fmt.Sprintf("%s (%s)", viewer.DisplayName(path), a.Format))
+			if a != nil {
+				archSig.Set(a)
+				ctx.Title.Set(fmt.Sprintf("%s (%s)", viewer.DisplayName(path), a.Format))
+			}
 		})
 	}()
 
@@ -236,8 +259,12 @@ func (Plugin) View(cx *core.Scope, path string, ctx *viewer.Context) core.Node {
 				if a == nil {
 					return ""
 				}
+				files := strconv.Itoa(a.FileCount)
+				if a.Scanning || a.Truncated {
+					files += "+"
+				}
 				return locales.For(cx).ArchSummary(
-					strconv.Itoa(a.FileCount),
+					files,
 					viewer.FormatBytes(uint64(max(0, a.TotalSize))),
 					viewer.FormatBytes(uint64(max(0, a.PackedTotal))),
 				)

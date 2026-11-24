@@ -63,6 +63,20 @@ type Archive struct {
 	Roots       []any
 	Children    map[string][]any
 	AllDirs     map[string]bool
+	// Scanning reports that a compressed tar's index is still growing.
+	Scanning bool
+	// Truncated reports that scanning stopped at ScanLimits.MaxEntries.
+	Truncated bool
+}
+
+// ScanLimits bounds a compressed tar scan. Compressed tar has no index, so
+// reaching each header means decompressing all the data before it. The scan
+// emits the first entry immediately and then a growing index every
+// BatchEntries entries, stopping at MaxEntries or when Stop reports true.
+type ScanLimits struct {
+	BatchEntries int
+	MaxEntries   int
+	Stop         func() bool
 }
 
 // OpenArchive parses archive metadata and entry index without extracting full contents.
@@ -95,6 +109,25 @@ func OpenArchive(p string) (*Archive, error) {
 	}
 }
 
+// OpenArchiveStreaming is OpenArchive for formats whose index grows as it is
+// read: a tar, tar.gz or tar.bz2. emit receives the first entry as soon as its
+// header is read, then the growing index, and stops the scan when it returns
+// false. Other formats have an index already and are returned by OpenArchive
+// without calling emit.
+func OpenArchiveStreaming(p string, limits ScanLimits, emit func(*Archive) bool) (*Archive, error) {
+	lower := strings.ToLower(filepath.Base(p))
+	switch {
+	case strings.HasSuffix(lower, ".tar.gz") || strings.HasSuffix(lower, ".tgz"):
+		return parseTarCompressedStreaming(p, "TAR.GZ", true, limits, emit)
+	case strings.HasSuffix(lower, ".tar.bz2") || strings.HasSuffix(lower, ".tbz2"):
+		return parseTarCompressedStreaming(p, "TAR.BZ2", false, limits, emit)
+	}
+	if ext := strings.ToLower(filepath.Ext(lower)); ext == ".tar" || ext == ".cbt" {
+		return parseTarFileStreaming(p, "TAR", limits, emit)
+	}
+	return OpenArchive(p)
+}
+
 func finalizeArchive(format string, entries []*Entry) *Archive {
 	arch := &Archive{
 		Format:   format,
@@ -118,8 +151,15 @@ func finalizeArchive(format string, entries []*Entry) *Archive {
 		if clean == "" || clean == "." {
 			continue
 		}
-		e.Path = clean
-		e.Name = path.Base(clean)
+		// A streaming scan finalizes the same entries for each snapshot; only
+		// write the cleaned name once so snapshots already handed to the UI
+		// never change under it.
+		if e.Path != clean {
+			e.Path = clean
+		}
+		if name := path.Base(clean); e.Name != name {
+			e.Name = name
+		}
 		if existing, exists := arch.ByPath[clean]; exists {
 			if existing.Dir && !e.Dir {
 				arch.ByPath[clean] = e
@@ -312,22 +352,30 @@ func decodeZipName(name string) string {
 }
 
 func parseTarFile(p, format string) (*Archive, error) {
+	return parseTarFileStreaming(p, format, ScanLimits{}, nil)
+}
+
+func parseTarFileStreaming(p, format string, limits ScanLimits, emit func(*Archive) bool) (*Archive, error) {
 	f, err := os.Open(p)
 	if err != nil {
 		return nil, err
 	}
 	defer f.Close()
-	return readTarEntries(format, f, func(entryName string, limit int64) ([]byte, error) {
+	return readTarEntriesWith(format, f, func(entryName string, limit int64) ([]byte, error) {
 		rf, err := os.Open(p)
 		if err != nil {
 			return nil, err
 		}
 		defer rf.Close()
 		return extractTarEntry(rf, entryName, limit)
-	})
+	}, limits, emit)
 }
 
 func parseTarCompressed(p, format string, isGzip bool) (*Archive, error) {
+	return parseTarCompressedStreaming(p, format, isGzip, ScanLimits{}, nil)
+}
+
+func parseTarCompressedStreaming(p, format string, isGzip bool, limits ScanLimits, emit func(*Archive) bool) (*Archive, error) {
 	f, err := os.Open(p)
 	if err != nil {
 		return nil, err
@@ -344,7 +392,7 @@ func parseTarCompressed(p, format string, isGzip bool) (*Archive, error) {
 	} else {
 		r = bzip2.NewReader(f)
 	}
-	return readTarEntries(format, r, func(entryName string, limit int64) ([]byte, error) {
+	return readTarEntriesWith(format, r, func(entryName string, limit int64) ([]byte, error) {
 		rf, err := os.Open(p)
 		if err != nil {
 			return nil, err
@@ -362,12 +410,40 @@ func parseTarCompressed(p, format string, isGzip bool) (*Archive, error) {
 			rr = bzip2.NewReader(rf)
 		}
 		return extractTarEntry(rr, entryName, limit)
-	})
+	}, limits, emit)
 }
 
-func readTarEntries(format string, r io.Reader, readEntry func(name string, limit int64) ([]byte, error)) (*Archive, error) {
+// stopReader stops a tar scan between reads, so closing a preview does not
+// wait for a multi-gigabyte stream to finish decompressing.
+type stopReader struct {
+	r    io.Reader
+	stop func() bool
+}
+
+func (s stopReader) Read(p []byte) (int, error) {
+	if s.stop != nil && s.stop() {
+		return 0, io.EOF
+	}
+	return s.r.Read(p)
+}
+
+func readTarEntriesWith(format string, r io.Reader, readEntry func(name string, limit int64) ([]byte, error), limits ScanLimits, emit func(*Archive) bool) (*Archive, error) {
+	if limits.Stop != nil {
+		r = stopReader{r: r, stop: limits.Stop}
+	}
+	batch := limits.BatchEntries
+	if batch <= 0 {
+		batch = 200
+	}
 	tr := tar.NewReader(r)
 	var entries []*Entry
+	truncated := false
+	snapshot := func(scanning bool) *Archive {
+		a := finalizeArchive(format, entries)
+		a.Scanning = scanning
+		a.Truncated = truncated
+		return a
+	}
 	for {
 		hdr, err := tr.Next()
 		if err == io.EOF {
@@ -388,8 +464,17 @@ func readTarEntries(format string, r io.Reader, readEntry func(name string, limi
 				return readEntry(rawName, limit)
 			},
 		})
+		if limits.MaxEntries > 0 && len(entries) >= limits.MaxEntries {
+			truncated = true
+			break
+		}
+		if emit != nil && (len(entries) == 1 || len(entries)%batch == 0) {
+			if !emit(snapshot(true)) {
+				return snapshot(false), nil
+			}
+		}
 	}
-	return finalizeArchive(format, entries), nil
+	return snapshot(false), nil
 }
 
 func extractTarEntry(r io.Reader, name string, limit int64) ([]byte, error) {
