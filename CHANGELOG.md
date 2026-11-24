@@ -3,6 +3,18 @@
 All notable changes to NSGook are documented here. This file and each
 GitHub release's notes are generated from Conventional Commit messages.
 
+## [0.1.1] - 2026-11-24
+
+### Fixes
+- **appviewer**: Compose adaptive launcher icons
+
+### Performance
+- **pe**: Paint the report before verifying the signature
+- **pe**: Show the summary before imports and the icon
+- **archive**: Stream tar indexes while scanning
+- **pdf**: Reuse inspected metadata between Prepare and View
+- **pe**: Read the shell icon without thumbnail handlers
+
 ## [0.1.0] - 2026-11-24
 
 ### Features
