@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"sync"
 	"time"
 
 	"github.com/nsgo-dev/nsgo/core"
@@ -61,7 +62,33 @@ func (PEPlugin) View(cx *core.Scope, path string, ctx *viewer.Context) core.Node
 	return renderReportViewer(cx, path, ctx, lucide.Cpu, func() (*Report, error) {
 		report, err := InspectPE(path, tr.DevSummary(), tr.DevSections(), tr.DevImports(), tr.DevSymbols(), tr.DevRawDetails())
 		if err == nil && report != nil {
-			report.IconData = shellIconPNG(ctx, path, 64)
+			// The shell icon can take a second to extract the first time and on
+			// some installers. Read it beside the other deferred metadata and
+			// add it when it is ready.
+			later := report.Later
+			report.Later = func() *Report {
+				var icon []byte
+				var wg sync.WaitGroup
+				wg.Add(1)
+				go func() {
+					defer wg.Done()
+					icon = shellIconPNG(ctx, path, 64)
+				}()
+				next := report
+				if later != nil {
+					next = later()
+				}
+				wg.Wait()
+				if next == nil || len(icon) == 0 {
+					return next
+				}
+				if next == report {
+					copied := *report
+					next = &copied
+				}
+				next.IconData = icon
+				return next
+			}
 		}
 		return report, err
 	})
@@ -179,35 +206,11 @@ func InspectPE(path, titleSummary, titleSections, titleImports, titleSymbols, ti
 		})
 	}
 
-	var impRows []pluginui.KV
-	if imps, err := f.ImportedSymbols(); err == nil {
-		limit := min(len(imps), 250)
-		for _, imp := range imps[:limit] {
-			impRows = append(impRows, pluginui.KV{Key: "Import", Value: imp})
-		}
-		if len(imps) > limit {
-			impRows = append(impRows, pluginui.KV{Key: "…", Value: fmt.Sprintf("+%d more", len(imps)-limit)})
-		}
-	}
-
-	var symRows []pluginui.KV
-	limit := min(len(f.Symbols), 200)
-	for _, sym := range f.Symbols[:limit] {
-		symRows = append(symRows, pluginui.KV{
-			Key:   fmt.Sprintf("Sec %d", sym.SectionNumber),
-			Value: sym.Name,
-		})
-	}
-
+	// Imports and symbols, like the signature, can take seconds on large
+	// binaries; readPEImports fills them in after the summary is shown.
 	tabs := []ReportTab{
 		{ID: "pe-details", Label: fmt.Sprintf("PE %s", titleDetails), Sections: []Section{{Title: fmt.Sprintf("PE %s", titleDetails), Rows: techRows}}},
 		{ID: "sections", Label: fmt.Sprintf("%s (%d)", titleSections, len(secRows)), Sections: []Section{{Title: titleSections, Rows: secRows}}},
-	}
-	if len(impRows) > 0 {
-		tabs = append(tabs, ReportTab{ID: "imports", Label: fmt.Sprintf("%s (%d)", titleImports, len(impRows)), Sections: []Section{{Title: titleImports, Rows: impRows}}})
-	}
-	if len(symRows) > 0 {
-		tabs = append(tabs, ReportTab{ID: "symbols", Label: fmt.Sprintf("%s (%d)", titleSymbols, len(symRows)), Sections: []Section{{Title: titleSymbols, Rows: symRows}}})
 	}
 
 	titleSuffix := arch + " " + kind
@@ -229,14 +232,60 @@ func InspectPE(path, titleSummary, titleSections, titleImports, titleSymbols, ti
 		Tabs: tabs,
 	}
 	report.Later = func() *Report {
-		return reportWithSignature(report, verifyAuthenticode(path))
+		signature, imports, symbols := readPEDetails(path)
+		return reportWithDetails(report, signature, imports, symbols, titleImports, titleSymbols)
 	}
 	return report, nil
 }
 
-// reportWithSignature returns a copy of a PE report with the signature row and
-// Signed badge filled in after verifyAuthenticode finishes.
-func reportWithSignature(base *Report, signature string) *Report {
+// readPEDetails reads a PE's slow metadata in parallel: its Authenticode
+// signature, imports and COFF symbols. Any of them can take seconds on a large
+// binary, so none belongs on the path to the first paint.
+func readPEDetails(path string) (signature string, imports, symbols []pluginui.KV) {
+	var wg sync.WaitGroup
+	wg.Add(2)
+	go func() {
+		defer wg.Done()
+		signature = verifyAuthenticode(path)
+	}()
+	go func() {
+		defer wg.Done()
+		imports, symbols = readPEImports(path)
+	}()
+	wg.Wait()
+	return signature, imports, symbols
+}
+
+// readPEImports reads the imports and COFF symbols a PE report lists.
+func readPEImports(path string) (imports, symbols []pluginui.KV) {
+	f, err := pe.Open(path)
+	if err != nil {
+		return nil, nil
+	}
+	defer f.Close()
+
+	if imps, err := f.ImportedSymbols(); err == nil {
+		limit := min(len(imps), 250)
+		for _, imp := range imps[:limit] {
+			imports = append(imports, pluginui.KV{Key: "Import", Value: imp})
+		}
+		if len(imps) > limit {
+			imports = append(imports, pluginui.KV{Key: "…", Value: fmt.Sprintf("+%d more", len(imps)-limit)})
+		}
+	}
+	limit := min(len(f.Symbols), 200)
+	for _, sym := range f.Symbols[:limit] {
+		symbols = append(symbols, pluginui.KV{
+			Key:   fmt.Sprintf("Sec %d", sym.SectionNumber),
+			Value: sym.Name,
+		})
+	}
+	return imports, symbols
+}
+
+// reportWithDetails returns a copy of a PE report with the signature row and
+// Signed badge set, and the imports and symbols tabs appended.
+func reportWithDetails(base *Report, signature string, imports, symbols []pluginui.KV, titleImports, titleSymbols string) *Report {
 	if base == nil {
 		return nil
 	}
@@ -261,6 +310,13 @@ func reportWithSignature(base *Report, signature string) *Report {
 			}
 		}
 		next.Sections[i] = Section{Title: section.Title, Rows: rows}
+	}
+	next.Tabs = append([]ReportTab(nil), base.Tabs...)
+	if len(imports) > 0 {
+		next.Tabs = append(next.Tabs, ReportTab{ID: "imports", Label: fmt.Sprintf("%s (%d)", titleImports, len(imports)), Sections: []Section{{Title: titleImports, Rows: imports}}})
+	}
+	if len(symbols) > 0 {
+		next.Tabs = append(next.Tabs, ReportTab{ID: "symbols", Label: fmt.Sprintf("%s (%d)", titleSymbols, len(symbols)), Sections: []Section{{Title: titleSymbols, Rows: symbols}}})
 	}
 	return &next
 }
