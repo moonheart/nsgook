@@ -86,6 +86,17 @@ go tool nsgo dev
 go tool nsgo build -target windows_x64
 ```
 
+### 发布版本
+
+推送 `v*` 标签即可自动构建并发布 GitHub Release：
+
+```sh
+git tag v0.1.0
+git push origin v0.1.0
+```
+
+Release 工作流会依次执行 `nsgo check`、`nsgo test`，构建 Windows 安装包，根据 Conventional Commits 生成发布说明，创建 Release，并把更新后的 [CHANGELOG.md](CHANGELOG.md) 提交回 `main`。带 `-` 的标签（如 `v0.1.0-rc.1`）会标记为预发布。
+
 ### 命令行参数
 
 ```sh

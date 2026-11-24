@@ -1,0 +1,50 @@
+# git-cliff configuration for NSGook's changelog and GitHub release notes.
+# https://git-cliff.org/docs/configuration
+#
+# Commit subjects follow Conventional Commits, so `feat(audio): ...` lands
+# under Features and `fix(video): ...` under Fixes.
+
+[changelog]
+header = """
+# Changelog
+
+All notable changes to NSGook are documented here. This file and each
+GitHub release's notes are generated from Conventional Commit messages.
+
+"""
+body = """
+{% if version -%}
+## [{{ version | trim_start_matches(pat="v") }}] - {{ timestamp | date(format="%Y-%m-%d") }}
+{% else -%}
+## [Unreleased]
+{% endif %}
+{% for entry in commits | commit_groups(groups=commit_parsers_groups) -%}
+### {{ entry.group | striptags | trim }}
+{% for commit in entry.commits %}- {% if commit.scope %}**{{ commit.scope }}**: {% endif %}{{ commit.message | upper_first }}{% if commit.breaking %} (breaking){% endif %}
+{% endfor %}
+{% endfor %}
+"""
+trim = true
+render_always = true
+
+[git]
+conventional_commits = true
+filter_unconventional = false
+split_commits = false
+protect_breaking_commits = false
+filter_commits = false
+sort_commits = "oldest"
+commit_parsers = [
+  { message = "^feat", group = "Features" },
+  { message = "^fix", group = "Fixes" },
+  { message = "^perf", group = "Performance" },
+  { message = "^refactor", group = "Refactor" },
+  { message = "^docs: update changelog", skip = true },
+  { message = "^docs?", group = "Documentation" },
+  { message = "^test", group = "Tests" },
+  { message = "^ci", group = "CI" },
+  { message = "^build", group = "Build" },
+  { message = "^chore", group = "Maintenance" },
+  { message = "^revert", group = "Reverts" },
+  { message = ".*", group = "Other" },
+]

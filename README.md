@@ -86,6 +86,17 @@ go tool nsgo dev
 go tool nsgo build -target windows_x64
 ```
 
+### Releases
+
+Push a `v*` tag to build and publish a GitHub Release:
+
+```sh
+git tag v0.1.0
+git push origin v0.1.0
+```
+
+The Release workflow runs `nsgo check` and `nsgo test`, builds the Windows installer, generates the release notes from Conventional Commits, publishes the release, and commits the updated [CHANGELOG.md](CHANGELOG.md) back to `main`. Use a tag such as `v0.1.0-rc.1` for a prerelease.
+
 ### CLI Flags
 
 ```sh

@@ -20,7 +20,9 @@ import (
 	"nsgook/locales"
 )
 
-const AppVersion = "0.1.0"
+// AppVersion is the version shown in the tray. Release builds set it from the
+// tag with -ldflags "-X nsgook/internal/app.AppVersion=...".
+var AppVersion = "0.1.0"
 
 // AppOptions configures Controller startup for production or isolated headless tests.
 type AppOptions struct {
