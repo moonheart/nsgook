@@ -11,6 +11,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/nsgo-dev/nsgo/audio"
 	"github.com/nsgo-dev/nsgo/core"
 	"github.com/nsgo-dev/nsgo/icons/lucide"
 	"github.com/nsgo-dev/nsgo/ui"
@@ -20,8 +21,9 @@ import (
 	"nsgook/locales"
 )
 
-// Plugin previews video and audio files via Media Foundation / AVFoundation / GStreamer,
-// enriched with pure-Go tag/cover-art extraction and synced .lrc lyrics.
+// Plugin previews video through the platform media engine (with a web-engine
+// fallback) and audio through audio.Player, enriched with pure-Go tag/cover-art
+// extraction and synced .lrc lyrics.
 type Plugin struct{}
 
 func New() viewer.Plugin { return Plugin{} }
@@ -140,7 +142,77 @@ func (Plugin) View(cx *core.Scope, path string, ctx *viewer.Context) core.Node {
 		})
 	}()
 
+	// Audio streams through audio.Player instead of a hidden video node: the
+	// player reports its own state and supports seek, rate and looping without
+	// a picture pipeline.
+	var player *audio.Player
+	if isAudio {
+		player = audio.NewPlayer(cx, core.AudioSource{URI: localFileURI(path)}, audio.PlayerOptions{
+			ProgressInterval: 200 * time.Millisecond,
+			OnLoad: func(dur time.Duration) {
+				if !stopped.Load() && dur > 0 {
+					durMs.Set(dur.Milliseconds())
+				}
+			},
+			OnProgress: func(pos, dur time.Duration) {
+				if stopped.Load() {
+					return
+				}
+				posMs.Set(pos.Milliseconds())
+				if dur > 0 {
+					durMs.Set(dur.Milliseconds())
+				}
+			},
+			OnEnd: func() {
+				if stopped.Load() {
+					return
+				}
+				paused.Set(true)
+				if d := durMs.GetUntracked(); d > 0 {
+					posMs.Set(d)
+				}
+			},
+			OnError: func(err error) {
+				if err != nil && !stopped.Load() {
+					mediaErr.Set(err.Error())
+				}
+			},
+		})
+		// Apply the saved voice before Play opens the source, so it does not
+		// start at full volume before the first settings update.
+		cx.Effect(func() {
+			player.SetVolume(max(volume.Get(), 0.01))
+			player.SetMuted(muted.Get() || volume.Get() <= 0.001)
+		})
+		cx.Effect(func() { player.SetRate(rate.Get()) })
+		cx.Effect(func() { player.SetLoop(loop.Get()) })
+		cx.Effect(func() {
+			if paused.Get() {
+				player.Pause()
+				return
+			}
+			player.Play(func(err error) {
+				if err != nil && !stopped.Load() {
+					mediaErr.Set(err.Error())
+				}
+			})
+		})
+		cx.Effect(func() {
+			if ctx.IsReleasing() {
+				player.Close()
+			}
+		})
+	}
+
 	videoRef := &core.Ref{}
+	seekTo := func(d time.Duration) {
+		if player != nil {
+			player.Seek(d)
+			return
+		}
+		videoRef.Seek(d)
+	}
+
 	speeds := []float32{0.5, 1.0, 1.25, 1.5, 2.0}
 	cycleSpeed := func() {
 		cur := rate.GetUntracked()
@@ -155,7 +227,7 @@ func (Plugin) View(cx *core.Scope, path string, ctx *viewer.Context) core.Node {
 	}
 	togglePlay := func() {
 		if posMs.GetUntracked() >= durMs.GetUntracked() && durMs.GetUntracked() > 0 && paused.GetUntracked() {
-			videoRef.Seek(0)
+			seekTo(0)
 			posMs.Set(0)
 		}
 		paused.Set(!paused.GetUntracked())
@@ -190,57 +262,6 @@ func (Plugin) View(cx *core.Scope, path string, ctx *viewer.Context) core.Node {
 		},
 	})
 
-	playerNode := core.Video{
-		Ref:              videoRef,
-		Source:           path,
-		PausedFunc:       paused.Get,
-		MutedFunc:        func() bool { return muted.Get() || volume.Get() <= 0.001 },
-		VolumeFunc:       func() float32 { return max(volume.Get(), 0.01) },
-		RateFunc:         rate.Get,
-		ResizeMode:       core.Contain,
-		ProgressInterval: 200 * time.Millisecond,
-		OnLoad: func(info core.VideoInfo) {
-			if info.Duration > 0 {
-				durMs.Set(info.Duration.Milliseconds())
-			}
-			if !isAudio && info.Size.Width > 0 && info.Size.Height > 0 {
-				base := viewer.DisplayName(path)
-				ctx.Title.Set(fmt.Sprintf("%s (%d×%d)", base, int(info.Size.Width), int(info.Size.Height)))
-			}
-		},
-		OnProgress: func(pos, dur time.Duration) {
-			posMs.Set(pos.Milliseconds())
-			if dur > 0 {
-				durMs.Set(dur.Milliseconds())
-			}
-		},
-		OnPlay:  func() { paused.Set(false) },
-		OnPause: func(core.VideoPauseReason) { paused.Set(true) },
-		OnEnd: func() {
-			if loop.GetUntracked() {
-				videoRef.Seek(0)
-				posMs.Set(0)
-				paused.Set(false)
-			} else {
-				paused.Set(true)
-			}
-		},
-		OnError: func(err error) {
-			if err != nil {
-				mediaErr.Set(err.Error())
-				if !isAudio {
-					startWebFallback()
-				}
-			}
-		},
-		Style: func() core.Style {
-			if isAudio {
-				return core.Style{Width: core.Pt(1), Height: core.Pt(1), Opacity: core.Alpha(0)}
-			}
-			return core.Style{FlexGrow: 1, FlexShrink: 1, Width: core.Pct(100), Height: core.Pct(100)}
-		}(),
-	}
-
 	controlsBar := core.View{
 		Style: core.Style{
 			Direction:    core.Row,
@@ -270,6 +291,7 @@ func (Plugin) View(cx *core.Scope, path string, ctx *viewer.Context) core.Node {
 				},
 				Label:   locales.For(cx).MediaPlay(),
 				Size:    28,
+				TestID:  "media-play",
 				OnPress: togglePlay,
 			},
 			core.Text{
@@ -293,10 +315,11 @@ func (Plugin) View(cx *core.Scope, path string, ctx *viewer.Context) core.Node {
 						Value: func() float64 {
 							return float64(posMs.Get())
 						},
+						TestID: "media-seek",
 						OnChange: func(v float64) {
 							d := time.Duration(v) * time.Millisecond
 							posMs.Set(int64(v))
-							videoRef.Seek(d)
+							seekTo(d)
 						},
 					},
 				},
@@ -317,15 +340,17 @@ func (Plugin) View(cx *core.Scope, path string, ctx *viewer.Context) core.Node {
 				},
 				Label:   locales.For(cx).MediaMute(),
 				Size:    26,
+				TestID:  "media-mute",
 				OnPress: toggleMute,
 			},
 			core.View{
 				Style: core.Style{Width: core.Pt(70)},
 				Children: []core.Node{
 					ui.Slider{
-						Min:  0,
-						Max:  100,
-						Step: 5,
+						Min:    0,
+						Max:    100,
+						Step:   5,
+						TestID: "media-volume",
 						Value: func() float64 {
 							if muted.Get() {
 								return 0
@@ -346,6 +371,7 @@ func (Plugin) View(cx *core.Scope, path string, ctx *viewer.Context) core.Node {
 			},
 			ui.Press{
 				Label:   locales.For(cx).MediaSpeed(),
+				TestID:  "media-speed",
 				OnPress: cycleSpeed,
 				Children: []core.Node{
 					core.View{
@@ -373,6 +399,7 @@ func (Plugin) View(cx *core.Scope, path string, ctx *viewer.Context) core.Node {
 				Icon:     lucide.Repeat,
 				Label:    locales.For(cx).MediaLoop(),
 				Size:     26,
+				TestID:   "media-loop",
 				Selected: loop.Get,
 				OnPress:  toggleLoop,
 			},
@@ -563,11 +590,55 @@ func (Plugin) View(cx *core.Scope, path string, ctx *viewer.Context) core.Node {
 						}
 					},
 				},
-				playerNode,
 				controlsBar,
 			},
 		}
 		return audioBody
+	}
+
+	// Video plays through NSGo's native engine, with the web engine as fallback.
+	videoNode := core.Video{
+		Ref:              videoRef,
+		Source:           path,
+		PausedFunc:       paused.Get,
+		MutedFunc:        func() bool { return muted.Get() || volume.Get() <= 0.001 },
+		VolumeFunc:       func() float32 { return max(volume.Get(), 0.01) },
+		RateFunc:         rate.Get,
+		ResizeMode:       core.Contain,
+		ProgressInterval: 200 * time.Millisecond,
+		OnLoad: func(info core.VideoInfo) {
+			if info.Duration > 0 {
+				durMs.Set(info.Duration.Milliseconds())
+			}
+			if info.Size.Width > 0 && info.Size.Height > 0 {
+				base := viewer.DisplayName(path)
+				ctx.Title.Set(fmt.Sprintf("%s (%d×%d)", base, int(info.Size.Width), int(info.Size.Height)))
+			}
+		},
+		OnProgress: func(pos, dur time.Duration) {
+			posMs.Set(pos.Milliseconds())
+			if dur > 0 {
+				durMs.Set(dur.Milliseconds())
+			}
+		},
+		OnPlay:  func() { paused.Set(false) },
+		OnPause: func(core.VideoPauseReason) { paused.Set(true) },
+		OnEnd: func() {
+			if loop.GetUntracked() {
+				videoRef.Seek(0)
+				posMs.Set(0)
+				paused.Set(false)
+			} else {
+				paused.Set(true)
+			}
+		},
+		OnError: func(err error) {
+			if err != nil {
+				mediaErr.Set(err.Error())
+				startWebFallback()
+			}
+		},
+		Style: core.Style{FlexGrow: 1, FlexShrink: 1, Width: core.Pct(100), Height: core.Pct(100)},
 	}
 
 	// Video layout with floating glass controls bar at the bottom.
@@ -605,7 +676,7 @@ func (Plugin) View(cx *core.Scope, path string, ctx *viewer.Context) core.Node {
 						Then: func(cx *core.Scope) core.Node {
 							return pluginui.EmptyState(cx, lucide.VideoOff, locales.For(cx).CommonError(), mediaErr.Get())
 						},
-						Else: func(*core.Scope) core.Node { return playerNode },
+						Else: func(*core.Scope) core.Node { return videoNode },
 					}
 				},
 			},
@@ -625,6 +696,22 @@ func (Plugin) View(cx *core.Scope, path string, ctx *viewer.Context) core.Node {
 			},
 		},
 	}
+}
+
+// localFileURI makes a file URL Media Foundation reads as written: non-ASCII
+// file names stay in Unicode rather than being percent-encoded to UTF-8, which
+// its source resolver reads as the system code page and then cannot find. Only
+// characters that would change the URL's structure are escaped.
+func localFileURI(path string) string {
+	if abs, err := filepath.Abs(path); err == nil {
+		path = abs
+	}
+	slashed := strings.NewReplacer("%", "%25", " ", "%20", "#", "%23", "?", "%3F").
+		Replace(filepath.ToSlash(path))
+	if strings.HasPrefix(slashed, "//") {
+		return "file:" + slashed
+	}
+	return "file:///" + slashed
 }
 
 // serveLocalVideo serves the file to the web engine with a random token path,
