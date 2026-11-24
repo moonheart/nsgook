@@ -55,6 +55,10 @@ type Report struct {
 	ImageData   []byte
 	BodyTitle   string
 	BodyText    string
+	// Later, when set, runs in the background after the report is shown and
+	// replaces it with the report it returns. It keeps slow metadata, such as
+	// verifying a large executable's signature, off the first paint.
+	Later func() *Report
 }
 
 // ReportTab represents one named view/table/slide/sheet inside a tabbed Report.
@@ -113,6 +117,19 @@ func renderReportViewer(
 				}
 				if len(rep.Tabs) > 0 {
 					activeTab.Set(rep.Tabs[0].ID)
+				}
+				if later := rep.Later; later != nil {
+					go func() {
+						next := later()
+						if next == nil || stopped.Load() {
+							return
+						}
+						cx.Post(func() {
+							if !stopped.Load() {
+								repSig.Set(next)
+							}
+						})
+					}()
 				}
 			}
 		})

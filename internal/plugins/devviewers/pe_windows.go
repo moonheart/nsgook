@@ -25,9 +25,10 @@ var (
 	procWinVerifyTrust               = wintrustDLL.NewProc("WinVerifyTrust")
 )
 
-// readPEWindowsInfo reads the same shell-facing metadata Windows shows in a
-// file's General and Details tabs.
-func readPEWindowsInfo(path string, st os.FileInfo) peWindowsInfo {
+// readPEFileInfo reads the same shell-facing metadata Windows shows in a
+// file's General and Details tabs, except its signature: verifying that hashes
+// the whole file, so InspectPE fills it in later.
+func readPEFileInfo(path string, st os.FileInfo) peWindowsInfo {
 	var info peWindowsInfo
 	info.FileType = shellTypeName(path)
 	readFileVersionInfo(path, &info)
@@ -43,7 +44,6 @@ func readPEWindowsInfo(path string, st os.FileInfo) peWindowsInfo {
 
 	info.SizeOnDisk = allocatedFileSize(path, st.Size())
 	info.Security = zoneSecurity(path)
-	info.Signature = verifyAuthenticode(path)
 	return info
 }
 

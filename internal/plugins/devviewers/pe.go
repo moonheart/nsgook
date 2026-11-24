@@ -94,7 +94,10 @@ func InspectPE(path, titleSummary, titleSections, titleImports, titleSymbols, ti
 	}
 	defer f.Close()
 
-	win := readPEWindowsInfo(path, st)
+	// Verifying Authenticode hashes the whole file, which takes seconds for a
+	// large installer. Keep it off the first paint and fill it in afterwards.
+	win := readPEFileInfo(path, st)
+	win.Signature = "Checking…"
 
 	arch := peMachineName(f.Machine)
 	subsys := "Unknown"
@@ -216,7 +219,7 @@ func InspectPE(path, titleSummary, titleSections, titleImports, titleSymbols, ti
 		badges = append(badges, "Signed")
 	}
 
-	return &Report{
+	report := &Report{
 		TitleSuffix: titleSuffix,
 		Badges:      badges,
 		Sections: []Section{
@@ -224,7 +227,42 @@ func InspectPE(path, titleSummary, titleSections, titleImports, titleSymbols, ti
 			{Title: titleDetails, Rows: details},
 		},
 		Tabs: tabs,
-	}, nil
+	}
+	report.Later = func() *Report {
+		return reportWithSignature(report, verifyAuthenticode(path))
+	}
+	return report, nil
+}
+
+// reportWithSignature returns a copy of a PE report with the signature row and
+// Signed badge filled in after verifyAuthenticode finishes.
+func reportWithSignature(base *Report, signature string) *Report {
+	if base == nil {
+		return nil
+	}
+	next := *base
+	next.Later = nil
+	next.Badges = make([]string, 0, len(base.Badges)+1)
+	for _, badge := range base.Badges {
+		if badge != "Signed" {
+			next.Badges = append(next.Badges, badge)
+		}
+	}
+	if signature == "Valid" {
+		next.Badges = append(next.Badges, "Signed")
+	}
+	next.Sections = make([]Section, len(base.Sections))
+	for i, section := range base.Sections {
+		rows := make([]pluginui.KV, len(section.Rows))
+		copy(rows, section.Rows)
+		for j := range rows {
+			if rows[j].Key == "Digital Signature" {
+				rows[j].Value = signature
+			}
+		}
+		next.Sections[i] = Section{Title: section.Title, Rows: rows}
+	}
+	return &next
 }
 
 func peMachineName(m uint16) string {
