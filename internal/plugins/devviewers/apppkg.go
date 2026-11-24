@@ -6,6 +6,9 @@ import (
 	"encoding/binary"
 	"encoding/xml"
 	"fmt"
+	"image"
+	"image/draw"
+	"image/png"
 	"io"
 	"os"
 	"path/filepath"
@@ -14,6 +17,8 @@ import (
 
 	"github.com/nsgo-dev/nsgo/core"
 	"github.com/nsgo-dev/nsgo/icons/lucide"
+	xdraw "golang.org/x/image/draw"
+	_ "golang.org/x/image/webp"
 
 	"nsgook/internal/plugins/pluginui"
 	"nsgook/internal/viewer"
@@ -98,17 +103,10 @@ func InspectAppPackage(path, titleSummary, titlePerms string) (*Report, error) {
 	)
 
 	var permRows []pluginui.KV
-	var iconData []byte
 	var rawManifest string
 
 	for _, f := range zr.File {
 		low := strings.ToLower(f.Name)
-		if iconData == nil && (strings.Contains(low, "ic_launcher") || strings.Contains(low, "appicon") || strings.Contains(low, "storelogo")) &&
-			(strings.HasSuffix(low, ".png") || strings.HasSuffix(low, ".jpg")) {
-			if b, err := readZipLimit(f, 2<<20); err == nil {
-				iconData = b
-			}
-		}
 		switch {
 		case strings.EqualFold(f.Name, "AppxManifest.xml") || strings.EqualFold(f.Name, "WMAppManifest.xml"):
 			if b, err := readZipLimit(f, 512*1024); err == nil {
@@ -142,10 +140,134 @@ func InspectAppPackage(path, titleSummary, titlePerms string) (*Report, error) {
 	return &Report{
 		TitleSuffix: strings.TrimPrefix(strings.ToUpper(ext), "."),
 		Badges:      []string{strings.TrimPrefix(strings.ToUpper(ext), ".")},
-		ImageData:   iconData,
+		ImageData:   pickAppIcon(&zr.Reader),
 		Sections:    secs,
 		BodyText:    rawManifest,
 	}, nil
+}
+
+// pickAppIcon chooses the icon a package shows: a composed icon when it has
+// one, else the highest-density adaptive foreground and background layers
+// composited together. Android APKs often ship only
+// ic_launcher_foreground.png and ic_launcher_background.png, so taking the
+// first matching file shows a blank background instead of the app's icon.
+func pickAppIcon(zr *zip.Reader) []byte {
+	type candidate struct {
+		data  []byte
+		score int
+		size  int
+	}
+	var composed, foreground, background []candidate
+	better := func(list []candidate, data []byte, score int) []candidate {
+		return append(list, candidate{data: data, score: score, size: len(data)})
+	}
+	for _, f := range zr.File {
+		low := strings.ToLower(f.Name)
+		if !(strings.HasSuffix(low, ".png") || strings.HasSuffix(low, ".jpg") ||
+			strings.HasSuffix(low, ".jpeg") || strings.HasSuffix(low, ".webp")) {
+			continue
+		}
+		if !strings.Contains(low, "ic_launcher") && !strings.Contains(low, "appicon") && !strings.Contains(low, "storelogo") {
+			continue
+		}
+		data, err := readZipLimit(f, 2<<20)
+		if err != nil || len(data) == 0 {
+			continue
+		}
+		score := iconDensityScore(low)
+		switch {
+		case strings.Contains(low, "_foreground"):
+			foreground = better(foreground, data, score)
+		case strings.Contains(low, "_background"):
+			background = better(background, data, score)
+		default:
+			composed = better(composed, data, score)
+		}
+	}
+	best := func(list []candidate) *candidate {
+		var pick *candidate
+		for i := range list {
+			if pick == nil || list[i].score > pick.score || (list[i].score == pick.score && list[i].size > pick.size) {
+				pick = &list[i]
+			}
+		}
+		return pick
+	}
+	if c := best(composed); c != nil {
+		if out := normalizeIcon(c.data); out != nil {
+			return out
+		}
+	}
+	fg, bg := best(foreground), best(background)
+	if fg != nil && bg != nil {
+		if out := composeIcon(bg.data, fg.data); out != nil {
+			return out
+		}
+	}
+	if fg != nil {
+		return normalizeIcon(fg.data)
+	}
+	if bg != nil {
+		return normalizeIcon(bg.data)
+	}
+	return nil
+}
+
+func iconDensityScore(low string) int {
+	switch {
+	case strings.Contains(low, "xxxhdpi"):
+		return 5
+	case strings.Contains(low, "xxhdpi"):
+		return 4
+	case strings.Contains(low, "xhdpi"):
+		return 3
+	case strings.Contains(low, "hdpi"):
+		return 2
+	case strings.Contains(low, "mdpi"):
+		return 1
+	default:
+		return 0
+	}
+}
+
+// normalizeIcon decodes an icon and re-encodes it as PNG so a file the image
+// node cannot read leaves its card out instead of showing a blank rectangle.
+func normalizeIcon(data []byte) []byte {
+	img, _, err := image.Decode(bytes.NewReader(data))
+	if err != nil {
+		return nil
+	}
+	var out bytes.Buffer
+	if err := png.Encode(&out, img); err != nil {
+		return nil
+	}
+	return out.Bytes()
+}
+
+// composeIcon draws an adaptive icon's foreground over its background. The
+// layers share a size in an APK; a different foreground is scaled to fit.
+func composeIcon(background, foreground []byte) []byte {
+	bg, _, err := image.Decode(bytes.NewReader(background))
+	if err != nil {
+		return nil
+	}
+	fg, _, err := image.Decode(bytes.NewReader(foreground))
+	if err != nil {
+		return nil
+	}
+	bounds := bg.Bounds()
+	canvas := image.NewRGBA(image.Rect(0, 0, bounds.Dx(), bounds.Dy()))
+	draw.Draw(canvas, canvas.Bounds(), bg, bounds.Min, draw.Src)
+	if fg.Bounds().Size() == canvas.Bounds().Size() {
+		draw.Draw(canvas, canvas.Bounds(), fg, fg.Bounds().Min, draw.Over)
+	} else {
+		xdraw.CatmullRom.Scale(canvas, canvas.Bounds(), fg, fg.Bounds(), draw.Over, nil)
+	}
+	var out bytes.Buffer
+	if err := png.Encode(&out, canvas); err != nil {
+		return nil
+	}
+	return out.Bytes()
 }
 
 func readZipLimit(f *zip.File, limit int64) ([]byte, error) {
