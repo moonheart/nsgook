@@ -35,6 +35,9 @@ type System interface {
 	OpenWithDialog(path string) error
 	GetAssocAppName(path string) string
 	GetShellThumbnail(path string, size int) (*image.RGBA, error)
+	// GetShellIcon asks only for the file's icon, without running thumbnail
+	// handlers, which can spend seconds loading an app's own preview.
+	GetShellIcon(path string, size int) (*image.RGBA, error)
 	GetDriveSpace(path string) (total, free uint64, ok bool)
 }
 

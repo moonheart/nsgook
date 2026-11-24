@@ -57,7 +57,8 @@ type Report struct {
 	BodyText    string
 	// Later, when set, runs in the background after the report is shown and
 	// replaces it with the report it returns. It keeps slow metadata, such as
-	// verifying a large executable's signature, off the first paint.
+	// verifying a large executable's signature, off the first paint. The
+	// replacement may set Later too, chaining another update.
 	Later func() *Report
 }
 
@@ -118,17 +119,20 @@ func renderReportViewer(
 				if len(rep.Tabs) > 0 {
 					activeTab.Set(rep.Tabs[0].ID)
 				}
-				if later := rep.Later; later != nil {
+				if rep.Later != nil {
 					go func() {
-						next := later()
-						if next == nil || stopped.Load() {
-							return
-						}
-						cx.Post(func() {
-							if !stopped.Load() {
-								repSig.Set(next)
+						for current := rep; current != nil && current.Later != nil; {
+							next := current.Later()
+							if next == nil || stopped.Load() {
+								return
 							}
-						})
+							cx.Post(func() {
+								if !stopped.Load() {
+									repSig.Set(next)
+								}
+							})
+							current = next
+						}
 					}()
 				}
 			}

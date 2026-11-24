@@ -122,6 +122,10 @@ func (m *mockSystem) GetShellThumbnail(_ string, size int) (*image.RGBA, error) 
 	return img, nil
 }
 
+func (m *mockSystem) GetShellIcon(path string, size int) (*image.RGBA, error) {
+	return m.GetShellThumbnail(path, size)
+}
+
 func (m *mockSystem) GetDriveSpace(string) (uint64, uint64, bool) {
 	m.mu.Lock()
 	defer m.mu.Unlock()

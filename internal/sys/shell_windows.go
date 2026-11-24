@@ -646,6 +646,16 @@ func getSelectedFromDialog(fg uintptr) string {
 }
 
 func getShellThumbnailWin(path string, size int) (*image.RGBA, error) {
+	return getShellImageWin(path, size, siigbfResizeToFit)
+}
+
+// getShellIconWin asks only for the file's icon, skipping thumbnail handlers
+// that can spend seconds loading an app's own preview.
+func getShellIconWin(path string, size int) (*image.RGBA, error) {
+	return getShellImageWin(path, size, siigbfIconOnly)
+}
+
+func getShellImageWin(path string, size int, flags uintptr) (*image.RGBA, error) {
 	if path == "" || size <= 0 {
 		return nil, nil
 	}
@@ -674,7 +684,7 @@ func getShellThumbnailWin(path string, size int) (*image.RGBA, error) {
 
 		packedSize := uintptr(uint32(size)) | (uintptr(uint32(size)) << 32)
 		var hbm uintptr
-		if failed(factory.call(siifGetImage, packedSize, siigbfResizeToFit, uintptr(unsafe.Pointer(&hbm)))) || hbm == 0 {
+		if failed(factory.call(siifGetImage, packedSize, flags, uintptr(unsafe.Pointer(&hbm)))) || hbm == 0 {
 			return thumbResult{}
 		}
 		defer procDeleteObject.Call(hbm)

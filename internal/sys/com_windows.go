@@ -62,6 +62,7 @@ const (
 	svgioSelection         = 1
 	sigdnDesktopAbsParsing = 0x80028000
 	siigbfResizeToFit      = 0x0
+	siigbfIconOnly         = 0x4
 )
 
 type guid struct {

@@ -100,6 +100,10 @@ func (NativeSystem) GetShellThumbnail(path string, size int) (*image.RGBA, error
 	return getShellThumbnailWin(path, size)
 }
 
+func (NativeSystem) GetShellIcon(path string, size int) (*image.RGBA, error) {
+	return getShellIconWin(path, size)
+}
+
 func (NativeSystem) GetDriveSpace(path string) (total, free uint64, ok bool) {
 	var freeCaller, totalBytes, totalFree uint64
 	r, _, _ := procGetDiskFreeSpaceExW.Call(

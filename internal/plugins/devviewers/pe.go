@@ -62,32 +62,27 @@ func (PEPlugin) View(cx *core.Scope, path string, ctx *viewer.Context) core.Node
 	return renderReportViewer(cx, path, ctx, lucide.Cpu, func() (*Report, error) {
 		report, err := InspectPE(path, tr.DevSummary(), tr.DevSections(), tr.DevImports(), tr.DevSymbols(), tr.DevRawDetails())
 		if err == nil && report != nil {
-			// The shell icon can take a second to extract the first time and on
-			// some installers. Read it beside the other deferred metadata and
-			// add it when it is ready.
+			// Show the icon as its own update before the signature and imports
+			// finish: icon-only extraction is milliseconds, while hashing the
+			// executable can take seconds.
 			later := report.Later
 			report.Later = func() *Report {
-				var icon []byte
-				var wg sync.WaitGroup
-				wg.Add(1)
-				go func() {
-					defer wg.Done()
-					icon = shellIconPNG(ctx, path, 64)
-				}()
-				next := report
-				if later != nil {
-					next = later()
+				icon := shellIconPNG(ctx, path, 64)
+				next := *report
+				if len(icon) > 0 {
+					next.IconData = icon
 				}
-				wg.Wait()
-				if next == nil || len(icon) == 0 {
-					return next
+				next.Later = func() *Report {
+					final := report
+					if later != nil {
+						final = later()
+					}
+					if final != nil && len(icon) > 0 {
+						final.IconData = icon
+					}
+					return final
 				}
-				if next == report {
-					copied := *report
-					next = &copied
-				}
-				next.IconData = icon
-				return next
+				return &next
 			}
 		}
 		return report, err
@@ -98,7 +93,10 @@ func shellIconPNG(ctx *viewer.Context, path string, size int) []byte {
 	if ctx == nil || ctx.Sys == nil {
 		return nil
 	}
-	img, err := ctx.Sys.GetShellThumbnail(path, size)
+	img, err := ctx.Sys.GetShellIcon(path, size)
+	if err != nil || img == nil {
+		img, err = ctx.Sys.GetShellThumbnail(path, size)
+	}
 	if err != nil || img == nil {
 		return nil
 	}
