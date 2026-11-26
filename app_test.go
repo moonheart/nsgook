@@ -485,6 +485,45 @@ func TestMoreMenuTriggerShowsHoverFill(t *testing.T) {
 	}
 }
 
+func TestMoreMenuClosesWhenPreviewHides(t *testing.T) {
+	fx := createFixtures(t)
+	mock := &mockSystem{assocName: "Editor"}
+
+	var sess *app.ViewerSession
+	a := nsgotest.StartApp(t, func(appCx *core.Scope) {
+		ctrl := app.Start(appCx, app.AppOptions{
+			Sys:          mock,
+			DisableHooks: true,
+			ConfigPath:   filepath.Join(t.TempDir(), "config.yaml"),
+		})
+		appCx.SetMainView(func(cx *core.Scope) core.Node {
+			sess = app.NewViewerSession(ctrl, cx, fx.goF, app.PreviewOptions{})
+			return app.RenderViewerSurface(cx, sess, func() {})
+		})
+	}, nsgotest.Environment(core.Environment{OS: core.OSWindows}))
+
+	a.WaitFor("id:btn-more", 2*time.Second)
+	a.Press("id:btn-more")
+	a.WaitFor("id:menu-settings", 2*time.Second)
+
+	// Hiding the preview, as Space does, must dismiss the menu so a reused
+	// window does not show it still open.
+	a.Post(sess.Unload)
+	a.Settle()
+	if got := len(a.Query("id:menu-settings")); got != 0 {
+		t.Fatalf("expected the More menu closed on hide, got %d items", got)
+	}
+
+	a.Post(func() { sess.Load(fx.pngF, "") })
+	a.Settle()
+	if got := len(a.Query("id:menu-settings")); got != 0 {
+		t.Fatalf("expected the More menu to stay closed when the preview returns, got %d items", got)
+	}
+
+	a.Press("id:btn-more")
+	a.WaitFor("id:menu-settings", 2*time.Second)
+}
+
 func TestAutoHideControlsFadeInAndOut(t *testing.T) {
 	var hide *pluginui.AutoHide
 	a := nsgotest.Start(t, func(cx *core.Scope) core.Node {

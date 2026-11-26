@@ -10,6 +10,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/nsgo-dev/nsgo/base"
 	"github.com/nsgo-dev/nsgo/core"
 	"github.com/nsgo-dev/nsgo/desktop"
 	"github.com/nsgo-dev/nsgo/icons/lucide"
@@ -43,6 +44,7 @@ type ViewerSession struct {
 	topmostSig    *core.Signal[bool]
 	reloadSeq     *core.Signal[uint64]
 	dropHover     *core.Signal[bool]
+	moreOpen      *core.Signal[bool]
 
 	watchStop      func()
 	resizeFn       func()
@@ -73,6 +75,7 @@ func NewViewerSession(ctrl *Controller, cx *core.Scope, initialPath string, opts
 			topmostSig:    core.NewSignal(sessScope, cfg.Topmost || opts.Topmost),
 			reloadSeq:     core.NewSignal(sessScope, uint64(0)),
 			dropHover:     core.NewSignal(sessScope, false),
+			moreOpen:      core.NewSignal(sessScope, false),
 		}
 
 		ctx.SwitchPlugin = func(pluginID string) {
@@ -130,6 +133,9 @@ func (s *ViewerSession) Unload() {
 	s.stopWatcher()
 	if s.scope != nil && !s.scope.Disposed() {
 		s.scope.Batch(func() {
+			if s.moreOpen != nil {
+				s.moreOpen.Set(false)
+			}
 			if s.ctx != nil {
 				s.ctx.Reset("", false)
 			}
@@ -523,6 +529,10 @@ func RenderViewerSurface(cx *core.Scope, s *ViewerSession, onClose func()) core.
 	moreMenu := noDrag(ui.Menu{
 		TestID: "btn-more",
 		Label:  locales.For(cx).WinMore(),
+		Open:   func() bool { return s.moreOpen.Get() },
+		OnOpenChange: func(open bool, _ base.Reason) {
+			s.moreOpen.Set(open)
+		},
 		Trigger: ui.Button{
 			Variant:  ui.ButtonGhost,
 			Size:     ui.SizeSmall,
