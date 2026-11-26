@@ -41,16 +41,6 @@ jobs:
           "tag=$tag" >> $env:GITHUB_OUTPUT
           "version=$($Matches[1])" >> $env:GITHUB_OUTPUT
 
-      - name: Install NSIS
-        shell: pwsh
-        run: |
-          choco install nsis --yes --no-progress
-          $makensis = Join-Path ${env:ProgramFiles(x86)} "NSIS\makensis.exe"
-          if (-not (Test-Path $makensis)) {
-            throw "NSIS was not installed at $makensis"
-          }
-          & $makensis /VERSION
-
       - name: NSGo Check
         run: go tool nsgo check
 
