@@ -4,7 +4,7 @@ go 1.27.3
 
 require (
 	github.com/andybalholm/brotli v1.3.0
-	github.com/nsgo-dev/nsgo v0.3.0
+	github.com/nsgo-dev/nsgo v0.3.4
 	go.yaml.in/yaml/v3 v3.0.6
 	golang.org/x/image v0.48.0
 	golang.org/x/text v0.44.0
