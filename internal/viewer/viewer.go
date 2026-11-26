@@ -37,9 +37,14 @@ type Context struct {
 	TitlebarOverlap    *core.Signal[bool]
 	TitlebarAutoHide   *core.Signal[bool]
 	IsBlocked          bool
-	MoreItems          *core.Signal[[]MenuAction]
-	Releasing          *core.Signal[bool]
-	mediaCount         int
+	// PointerInside reports whether the pointer is over the preview window,
+	// and PointerActivity counts its moves, so a viewer can hide controls
+	// until the pointer enters or moves again.
+	PointerInside   *core.Signal[bool]
+	PointerActivity *core.Signal[uint64]
+	MoreItems       *core.Signal[[]MenuAction]
+	Releasing       *core.Signal[bool]
+	mediaCount      int
 
 	Config       *config.Store
 	Sys          sys.System
@@ -59,6 +64,8 @@ func NewContext(cx *core.Scope, cfg *config.Store, s sys.System) *Context {
 		FullWindowDragging: core.NewSignal(cx, false),
 		TitlebarOverlap:    core.NewSignal(cx, false),
 		TitlebarAutoHide:   core.NewSignal(cx, false),
+		PointerInside:      core.NewSignal(cx, false),
+		PointerActivity:    core.NewSignal(cx, uint64(0)),
 		MoreItems:          core.NewSignalFunc(cx, []MenuAction(nil), func(_, _ []MenuAction) bool { return false }),
 		Releasing:          core.NewSignal(cx, false),
 		Config:             cfg,
@@ -115,6 +122,9 @@ func (c *Context) Reset(path string, isDir bool) {
 	}
 	if c.TitlebarAutoHide != nil {
 		c.TitlebarAutoHide.Set(false)
+	}
+	if c.PointerInside != nil {
+		c.PointerInside.Set(false)
 	}
 	if c.MoreItems != nil {
 		c.MoreItems.Set(nil)

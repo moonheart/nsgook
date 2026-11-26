@@ -52,6 +52,8 @@ func TestAudioViewUsesPlayer(t *testing.T) {
 			a.AudioDurations = map[string]time.Duration{uri: 8 * time.Second}
 		},
 	)
+	a.Hover("id:audio-view")
+	a.Settle()
 	a.WaitFor("id:media-play", 2*time.Second)
 
 	if len(a.Players) != 1 {

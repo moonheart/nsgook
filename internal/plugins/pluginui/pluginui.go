@@ -133,7 +133,7 @@ func StatusBar(cx *core.Scope, children ...core.Node) core.Node {
 }
 
 // FloatingPill builds a centered bottom floating capsule bar over media/canvas/image viewers.
-func FloatingPill(cx *core.Scope, children ...core.Node) core.Node {
+func FloatingPill(cx *core.Scope, children ...core.Node) core.View {
 	colors := ui.ColorsOf(cx)
 	fin := ui.FinOf(cx)
 	return core.View{

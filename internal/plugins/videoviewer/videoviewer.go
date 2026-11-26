@@ -86,6 +86,8 @@ func (Plugin) View(cx *core.Scope, path string, ctx *viewer.Context) core.Node {
 		lyrics.Set(nil)
 	})
 	ctx.TrackMedia(cx)
+	controlsHide := pluginui.NewAutoHide(cx, 2500*time.Millisecond)
+	controlsHide.Track(cx, ctx.PointerInside, ctx.PointerActivity)
 	cx.Effect(func() {
 		if ctx.IsReleasing() {
 			stopped.Store(true)
@@ -263,6 +265,8 @@ func (Plugin) View(cx *core.Scope, path string, ctx *viewer.Context) core.Node {
 	})
 
 	controlsBar := core.View{
+		OnMouseEnter: func(core.MouseEvent) { controlsHide.Hover(true) },
+		OnMouseLeave: func(core.MouseEvent) { controlsHide.Hover(false) },
 		Style: core.Style{
 			Direction:    core.Row,
 			AlignItems:   core.AlignCenter,
@@ -408,6 +412,10 @@ func (Plugin) View(cx *core.Scope, path string, ctx *viewer.Context) core.Node {
 
 	if isAudio {
 		audioBody := core.View{
+			TestID:       "audio-view",
+			OnMouseEnter: func(core.MouseEvent) { controlsHide.Show() },
+			OnMouseMove:  func(core.MouseEvent) { controlsHide.Show() },
+			OnMouseLeave: func(core.MouseEvent) { controlsHide.Hide() },
 			Style: core.Style{
 				FlexGrow:   1,
 				FlexShrink: 1,
@@ -590,7 +598,7 @@ func (Plugin) View(cx *core.Scope, path string, ctx *viewer.Context) core.Node {
 						}
 					},
 				},
-				controlsBar,
+				controlsHide.Wrap(controlsBar),
 			},
 		}
 		return audioBody
@@ -646,6 +654,10 @@ func (Plugin) View(cx *core.Scope, path string, ctx *viewer.Context) core.Node {
 
 	// Video layout with floating glass controls bar at the bottom.
 	return core.View{
+		TestID:       "video-view",
+		OnMouseEnter: func(core.MouseEvent) { controlsHide.Show() },
+		OnMouseMove:  func(core.MouseEvent) { controlsHide.Show() },
+		OnMouseLeave: func(core.MouseEvent) { controlsHide.Hide() },
 		Style: core.Style{
 			FlexGrow:   1,
 			FlexShrink: 1,
@@ -686,7 +698,7 @@ func (Plugin) View(cx *core.Scope, path string, ctx *viewer.Context) core.Node {
 			core.Show{
 				When: func() bool { return webURL.Get() == "" },
 				Then: func(*core.Scope) core.Node {
-					return core.View{
+					return controlsHide.Wrap(core.View{
 						Style: core.Style{
 							Position: core.Absolute,
 							Left:     core.Pt(14),
@@ -694,7 +706,7 @@ func (Plugin) View(cx *core.Scope, path string, ctx *viewer.Context) core.Node {
 							Bottom:   core.Pt(14),
 						},
 						Children: []core.Node{controlsBar},
-					}
+					})
 				},
 			},
 		},

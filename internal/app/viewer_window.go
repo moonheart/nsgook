@@ -910,9 +910,19 @@ func RenderViewerSurface(cx *core.Scope, s *ViewerSession, onClose func()) core.
 	}
 
 	return core.View{
-		TestID:          "viewer-root",
-		OnMouseEnter:    func(core.MouseEvent) { windowHover.Set(true) },
-		OnMouseLeave:    func(core.MouseEvent) { windowHover.Set(false) },
+		TestID: "viewer-root",
+		OnMouseEnter: func(core.MouseEvent) {
+			windowHover.Set(true)
+			s.ctx.PointerInside.Set(true)
+			s.ctx.PointerActivity.Update(func(n uint64) uint64 { return n + 1 })
+		},
+		OnMouseMove: func(core.MouseEvent) {
+			s.ctx.PointerActivity.Update(func(n uint64) uint64 { return n + 1 })
+		},
+		OnMouseLeave: func(core.MouseEvent) {
+			windowHover.Set(false)
+			s.ctx.PointerInside.Set(false)
+		},
 		OnFileDragEnter: func() { s.dropHover.Set(true) },
 		OnFileDragLeave: func() { s.dropHover.Set(false) },
 		OnFileDrop: func(uris []string) {

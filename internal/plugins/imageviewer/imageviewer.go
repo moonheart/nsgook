@@ -114,6 +114,8 @@ func (Plugin) View(cx *core.Scope, path string, ctx *viewer.Context) core.Node {
 		}
 	})
 	ctx.TrackMedia(cx)
+	controlsHide := pluginui.NewAutoHide(cx, 2500*time.Millisecond)
+	controlsHide.Track(cx, ctx.PointerInside, ctx.PointerActivity)
 
 	// Extremely tall screenshots are unreadable when the whole image is fitted
 	// into a narrow window. Start those at fit-width so the content is legible;
@@ -540,6 +542,8 @@ func (Plugin) View(cx *core.Scope, path string, ctx *viewer.Context) core.Node {
 			}},
 			pluginui.IconButton{Icon: lucide.Copy, Label: locales.For(cx).ImgCopyImage(), Size: 26, OnPress: copyImage},
 		)
+		controls.OnMouseEnter = func(core.MouseEvent) { controlsHide.Hover(true) }
+		controls.OnMouseLeave = func(core.MouseEvent) { controlsHide.Hover(false) }
 
 		return core.View{
 			OnLayout: func(b core.Bounds) { viewSize.Set(b.Size) },
@@ -551,7 +555,14 @@ func (Plugin) View(cx *core.Scope, path string, ctx *viewer.Context) core.Node {
 					MaxZoom:   16,
 					FitMargin: 16,
 					Content:   content,
-					Children:  []core.Node{controls},
+					OnHover: func(_ core.Point, over bool) {
+						if over {
+							controlsHide.Show()
+						} else {
+							controlsHide.Hover(false)
+						}
+					},
+					Children: []core.Node{controlsHide.Wrap(controls)},
 				},
 			},
 		}
