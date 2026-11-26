@@ -8,6 +8,7 @@ import (
 	"runtime"
 	"strings"
 	"sync/atomic"
+	"time"
 
 	"github.com/nsgo-dev/nsgo/core"
 	"github.com/nsgo-dev/nsgo/desktop"
@@ -752,6 +753,7 @@ func RenderViewerSurface(cx *core.Scope, s *ViewerSession, onClose func()) core.
 				Borders:     core.Edges{Bottom: 1},
 				Background:  ui.Alpha(colors.Surface(), 0.78),
 				BorderColor: colors.Line(),
+				Transition:  core.Transition{Duration: 160 * time.Millisecond, Easing: core.EaseOut, Properties: core.TransitionOpacity},
 			}
 			if overlap {
 				st.Position = core.Absolute

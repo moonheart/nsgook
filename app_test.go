@@ -20,6 +20,7 @@ import (
 
 	"nsgook/internal/app"
 	"nsgook/internal/config"
+	"nsgook/internal/plugins/pluginui"
 	"nsgook/internal/sys"
 )
 
@@ -481,6 +482,44 @@ func TestMoreMenuTriggerShowsHoverFill(t *testing.T) {
 	}
 	if face := trigger.Children[0]; face.Style.Background == 0 {
 		t.Fatal("expected the More menu trigger's face to fill under the pointer")
+	}
+}
+
+func TestAutoHideControlsFadeInAndOut(t *testing.T) {
+	var hide *pluginui.AutoHide
+	a := nsgotest.Start(t, func(cx *core.Scope) core.Node {
+		hide = pluginui.NewAutoHide(cx, time.Minute)
+		return hide.Wrap(core.View{TestID: "auto-hide-controls",
+			Style: core.Style{Width: core.Pt(120), Height: core.Pt(28)}})
+	}, nsgotest.Environment(core.Environment{OS: core.OSWindows, Idiom: core.IdiomDesktop}))
+	a.Settle()
+	if len(a.Query("id:auto-hide-controls")) != 0 {
+		t.Fatal("expected the controls hidden at rest")
+	}
+
+	a.Post(hide.Show)
+	a.Advance(200 * time.Millisecond)
+	controls := a.Query("id:auto-hide-controls")
+	if len(controls) != 1 {
+		t.Fatal("expected the controls up after Show")
+	}
+	if opacity := controls[0].Parent.Animated.Opacity; opacity != 1 {
+		t.Fatalf("expected the shown controls at full opacity, got %v", opacity)
+	}
+
+	a.Post(hide.Hide)
+	a.Advance(70 * time.Millisecond)
+	controls = a.Query("id:auto-hide-controls")
+	if len(controls) != 1 {
+		t.Fatal("expected the controls to stay mounted while they fade out")
+	}
+	if opacity := controls[0].Parent.Animated.Opacity; opacity <= 0 || opacity >= 1 {
+		t.Fatalf("expected the controls mid-fade, got opacity %v", opacity)
+	}
+
+	a.Advance(200 * time.Millisecond)
+	if len(a.Query("id:auto-hide-controls")) != 0 {
+		t.Fatal("expected the controls unmounted once the fade out ends")
 	}
 }
 

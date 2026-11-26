@@ -83,10 +83,48 @@ func (h *AutoHide) Track(cx *core.Scope, inside *core.Signal[bool], activity *co
 	})
 }
 
-// Wrap returns node as the overlay behind Visible.
+// Wrap returns node as the overlay behind Visible, fading it in from just
+// below and out again when it hides.
 func (h *AutoHide) Wrap(node core.Node) core.Node {
-	return core.Show{When: h.Visible.Get, Then: func(*core.Scope) core.Node { return node }}
+	return core.Presence{
+		When: h.Visible.Get,
+		Then: func(cx *core.Scope) core.Node {
+			m := core.NewMotion(cx, &controlsEnter)
+			m.Exit(controlsExit)
+			return core.View{
+				StyleFunc: func() core.Style {
+					s := core.Style{Animated: m.Style()}
+					// A branch leaving the overlay still draws its fade, but
+					// must not take the pointer on its way out.
+					if !cx.Present() {
+						s.PointerEvents = core.PointerEventsNone
+					}
+					return s
+				},
+				Children: []core.Node{node},
+			}
+		},
+	}
 }
+
+// controlsEnter and controlsExit are the overlay's show and hide: a short
+// fade with a few points of travel so a control bar rises into place.
+var (
+	controlsEnter = core.MotionSpec{
+		Timing: core.KeyframeTiming{Duration: 180 * time.Millisecond, Easing: core.BezierEasing(core.EaseOut)},
+		Tracks: []core.MotionTrack{
+			{Channel: core.MotionOpacity, Stops: []core.KeyframeStop{core.StopAt(0, 0), core.StopAt(1, 1)}},
+			{Channel: core.MotionTranslateY, Stops: []core.KeyframeStop{core.StopAt(0, 6), core.StopAt(1, 0)}},
+		},
+	}
+	controlsExit = core.MotionSpec{
+		Timing: core.KeyframeTiming{Duration: 140 * time.Millisecond, Easing: core.BezierEasing(core.EaseIn)},
+		Tracks: []core.MotionTrack{
+			{Channel: core.MotionOpacity, Stops: []core.KeyframeStop{core.StopAt(0, 1), core.StopAt(1, 0)}},
+			{Channel: core.MotionTranslateY, Stops: []core.KeyframeStop{core.StopAt(0, 0), core.StopAt(1, 6)}},
+		},
+	}
+)
 
 // Stop ends the timer when the view goes.
 func (h *AutoHide) Stop() {
