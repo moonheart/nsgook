@@ -598,8 +598,11 @@ func (Plugin) View(cx *core.Scope, path string, ctx *viewer.Context) core.Node {
 
 	// Video plays through NSGo's native engine, with the web engine as fallback.
 	videoNode := core.Video{
-		Ref:              videoRef,
-		Source:           path,
+		Ref: videoRef,
+		// Media Foundation reads a percent-encoded UTF-8 path as the system
+		// code page; keep non-ASCII names in Unicode so Chinese filenames open
+		// natively instead of falling back to the web player.
+		Source:           localFileURI(path),
 		PausedFunc:       paused.Get,
 		MutedFunc:        func() bool { return muted.Get() || volume.Get() <= 0.001 },
 		VolumeFunc:       func() float32 { return max(volume.Get(), 0.01) },
