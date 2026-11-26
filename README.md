@@ -54,7 +54,7 @@
 ### Specialized Developer & Windows Viewers (`devviewers`)
 
 - `PEViewer` (`peviewer`), `ELFViewer` (`elfviewer`), `CertViewer` (`certviewer`), `MailViewer` (`mailviewer`)
-- `AppViewer` (`appviewer`), `OfficeViewer` (`officeviewer`), `DbViewer` (`dbviewer` for SQLite)
+- `AppViewer` (`appviewer`), `OfficeViewer` (`officeviewer`, formatted DOCX / XLSX / PPTX), `DbViewer` (`dbviewer` for SQLite)
 - `Model3DViewer` (`model3dviewer`), `CLSIDViewer` (`clsidviewer`), `PrefetchViewer` (`prefetchviewer`)
 - `DumpViewer` (`dumpviewer`), `ChmViewer` (`chmviewer`), `PluginInstaller` (`plugininstaller`)
 - `ThumbnailViewer` (`thumbnailviewer`), `MediaInfoViewer` (`mediainfo`)

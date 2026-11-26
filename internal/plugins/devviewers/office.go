@@ -3,17 +3,23 @@ package devviewers
 import (
 	"archive/zip"
 	"bytes"
+	"crypto/rand"
+	"encoding/hex"
 	"encoding/xml"
 	"fmt"
+	"net"
+	"net/http"
 	"os"
 	"path/filepath"
 	"sort"
 	"strconv"
 	"strings"
+	"sync/atomic"
 
 	"github.com/nsgo-dev/nsgo/core"
 	"github.com/nsgo-dev/nsgo/icons/lucide"
 
+	"nsgook/internal/officehtml"
 	"nsgook/internal/plugins/pluginui"
 	"nsgook/internal/viewer"
 	"nsgook/locales"
@@ -40,9 +46,105 @@ func (OfficePlugin) Prepare(path string, ctx *viewer.Context) {
 
 func (OfficePlugin) View(cx *core.Scope, path string, ctx *viewer.Context) core.Node {
 	tr := locales.For(cx)
-	return renderReportViewer(cx, path, ctx, lucide.FileText, func() (*Report, error) {
-		return InspectOffice(path, tr.DevSummary(), tr.DevSheets(), tr.DevSlides())
+	fallback := func(cx *core.Scope) core.Node {
+		return renderReportViewer(cx, path, ctx, lucide.FileText, func() (*Report, error) {
+			return InspectOffice(path, tr.DevSummary(), tr.DevSheets(), tr.DevSlides())
+		})
+	}
+	if !cx.Env().HasWebView() || !officehtml.Supported(path) {
+		return fallback(cx)
+	}
+
+	// The text report shows at once; the rendered layout replaces it when
+	// the document has been parsed.
+	htmlDoc := core.NewSignal(cx, "")
+	var stopped atomic.Bool
+	cx.Cleanup(func() {
+		stopped.Store(true)
+		htmlDoc.Set("")
 	})
+	labels := officehtml.Labels{
+		EmptySheet: tr.OfficeEmptySheet(),
+		RowsLimit:  func(rows int) string { return tr.OfficeTruncatedRows(strconv.Itoa(rows)) },
+		ColsLimit:  func(cols int) string { return tr.OfficeTruncatedCols(strconv.Itoa(cols)) },
+	}
+	go func() {
+		rendered, err := officehtml.RenderWith(path, labels)
+		if err != nil || stopped.Load() {
+			return
+		}
+		cx.Post(func() {
+			if !stopped.Load() {
+				htmlDoc.Set(rendered)
+			}
+		})
+	}()
+	return core.Show{
+		When: func() bool { return htmlDoc.Get() != "" },
+		Then: func(cx *core.Scope) core.Node {
+			return renderOfficeHTML(cx, path, htmlDoc.Get(), ctx)
+		},
+		Else: fallback,
+	}
+}
+
+// renderOfficeHTML shows the document's generated HTML in the web engine.
+func renderOfficeHTML(cx *core.Scope, originalPath, htmlDoc string, ctx *viewer.Context) core.Node {
+	tr := locales.For(cx)
+	ctx.MoreItems.Set([]viewer.MenuAction{
+		{
+			ID:    "office-external",
+			Label: tr.CommonOpenExternal(),
+			Icon:  lucide.ExternalLink,
+			OnSelect: func() {
+				if ctx.Sys != nil {
+					_ = ctx.Sys.OpenDefault(originalPath)
+				}
+			},
+		},
+	})
+	source := core.WebHTML(htmlDoc, "")
+	// WebView2 refuses HTML larger than 2 MB through its string source, and
+	// documents with images pass it; serve those over localhost instead.
+	if len(htmlDoc) > 1<<20 {
+		if urlStr, stop, err := serveOfficeHTML(htmlDoc); err == nil {
+			cx.Cleanup(stop)
+			source = core.WebSrc(urlStr)
+		}
+	}
+	return pluginui.Fill(core.WebView{
+		Source:       source,
+		Incognito:    true,
+		NoJavaScript: true,
+		PinchZoom:    true,
+		Style:        core.Style{FlexGrow: 1, FlexShrink: 1, MinWidth: core.Pt(0), MinHeight: core.Pt(0)},
+	})
+}
+
+// serveOfficeHTML serves a rendered document over a localhost URL with a
+// random path, for pages too large to hand to the web view as a string.
+func serveOfficeHTML(doc string) (string, func(), error) {
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		return "", nil, err
+	}
+	var tok [16]byte
+	_, _ = rand.Read(tok[:])
+	secret := "/" + hex.EncodeToString(tok[:])
+	srv := &http.Server{Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != secret {
+			http.NotFound(w, r)
+			return
+		}
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		w.Header().Set("Cache-Control", "no-store")
+		_, _ = w.Write([]byte(doc))
+	})}
+	go func() { _ = srv.Serve(ln) }()
+	return "http://" + ln.Addr().String() + secret, func() {
+		_ = srv.Close()
+		_ = ln.Close()
+	}, nil
 }
 
 // InspectOffice extracts readable text, spreadsheet sheets, presentation slides, or EPUB/RTF content.

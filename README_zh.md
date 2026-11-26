@@ -54,7 +54,7 @@
 ### 开发者与 Windows 专属预览器（`devviewers`）
 
 - `PEViewer`（`peviewer`）、`ELFViewer`（`elfviewer`）、`CertViewer`（`certviewer`）、`MailViewer`（`mailviewer`）
-- `AppViewer`（`appviewer`）、`OfficeViewer`（`officeviewer`）、`DbViewer`（`dbviewer`，SQLite 数据库）
+- `AppViewer`（`appviewer`）、`OfficeViewer`（`officeviewer`，支持 DOCX / XLSX / PPTX 排版预览）、`DbViewer`（`dbviewer`，SQLite 数据库）
 - `Model3DViewer`（`model3dviewer`）、`CLSIDViewer`（`clsidviewer`）、`PrefetchViewer`（`prefetchviewer`）
 - `DumpViewer`（`dumpviewer`）、`ChmViewer`（`chmviewer`）、`PluginInstaller`（`plugininstaller`）
 - `ThumbnailViewer`（`thumbnailviewer`）、`MediaInfoViewer`（`mediainfo`）

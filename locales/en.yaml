@@ -253,6 +253,10 @@ devValid: Valid
 devExpired: Expired
 devNotYetValid: Not Yet Valid
 
+officeEmptySheet: Empty sheet
+officeTruncatedRows: "Only the first {count} rows are shown"
+officeTruncatedCols: "Only the first {count} columns are shown"
+
 modelWireframe: Wireframe
 modelShaded: Shaded
 modelResetView: Reset View

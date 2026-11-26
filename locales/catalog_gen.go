@@ -43,24 +43,26 @@ func For(cx *core.Scope) Messages {
 // its method, for the TSX declarations of the messages
 // (tsx.RegisterMessages).
 var Parameters = map[string][]string{
-	"TrayTooltip":      {"version"},
-	"WinOpen":          {"name"},
-	"WinOpenWithApp":   {"app"},
-	"WinRun":           {"app"},
-	"WinBrowseFolder":  {"name"},
-	"WinPreviewFailed": {"name"},
-	"InfoLastModified": {"time_"},
-	"InfoSize":         {"size"},
-	"InfoDriveSpace":   {"free", "total"},
-	"InfoFolderCounts": {"dirs", "files"},
-	"TextTruncated":    {"shown", "total"},
-	"TextLinesLabel":   {"lines", "encoding"},
-	"CsvStats":         {"rows", "cols"},
-	"ArchSummary":      {"files", "uncompressed", "packed"},
-	"ArchBinaryEntry":  {"size"},
-	"FontCopiedGlyph":  {"glyph", "code"},
-	"HexSize":          {"size", "bytes"},
-	"ModelStats":       {"vertices", "faces"},
+	"TrayTooltip":         {"version"},
+	"WinOpen":             {"name"},
+	"WinOpenWithApp":      {"app"},
+	"WinRun":              {"app"},
+	"WinBrowseFolder":     {"name"},
+	"WinPreviewFailed":    {"name"},
+	"InfoLastModified":    {"time_"},
+	"InfoSize":            {"size"},
+	"InfoDriveSpace":      {"free", "total"},
+	"InfoFolderCounts":    {"dirs", "files"},
+	"TextTruncated":       {"shown", "total"},
+	"TextLinesLabel":      {"lines", "encoding"},
+	"CsvStats":            {"rows", "cols"},
+	"ArchSummary":         {"files", "uncompressed", "packed"},
+	"ArchBinaryEntry":     {"size"},
+	"FontCopiedGlyph":     {"glyph", "code"},
+	"HexSize":             {"size", "bytes"},
+	"OfficeTruncatedRows": {"count"},
+	"OfficeTruncatedCols": {"count"},
+	"ModelStats":          {"vertices", "faces"},
 }
 
 // Translation is a language's messages another package supplies:
@@ -68,25 +70,27 @@ var Parameters = map[string][]string{
 // of the others; a key or a field left out leaves the message to the
 // catalog.
 type Translation struct {
-	Texts            map[string]string
-	TrayTooltip      func(version string) string
-	WinOpen          func(name string) string
-	WinOpenWithApp   func(app string) string
-	WinRun           func(app string) string
-	WinBrowseFolder  func(name string) string
-	WinPreviewFailed func(name string) string
-	InfoLastModified func(time_ string) string
-	InfoSize         func(size string) string
-	InfoDriveSpace   func(free string, total string) string
-	InfoFolderCounts func(dirs string, files string) string
-	TextTruncated    func(shown string, total string) string
-	TextLinesLabel   func(lines string, encoding string) string
-	CsvStats         func(rows string, cols string) string
-	ArchSummary      func(files string, uncompressed string, packed string) string
-	ArchBinaryEntry  func(size string) string
-	FontCopiedGlyph  func(glyph string, code string) string
-	HexSize          func(size string, bytes string) string
-	ModelStats       func(vertices string, faces string) string
+	Texts               map[string]string
+	TrayTooltip         func(version string) string
+	WinOpen             func(name string) string
+	WinOpenWithApp      func(app string) string
+	WinRun              func(app string) string
+	WinBrowseFolder     func(name string) string
+	WinPreviewFailed    func(name string) string
+	InfoLastModified    func(time_ string) string
+	InfoSize            func(size string) string
+	InfoDriveSpace      func(free string, total string) string
+	InfoFolderCounts    func(dirs string, files string) string
+	TextTruncated       func(shown string, total string) string
+	TextLinesLabel      func(lines string, encoding string) string
+	CsvStats            func(rows string, cols string) string
+	ArchSummary         func(files string, uncompressed string, packed string) string
+	ArchBinaryEntry     func(size string) string
+	FontCopiedGlyph     func(glyph string, code string) string
+	HexSize             func(size string, bytes string) string
+	OfficeTruncatedRows func(count string) string
+	OfficeTruncatedCols func(count string) string
+	ModelStats          func(vertices string, faces string) string
 }
 
 var supplied = map[string]Translation{}
@@ -300,6 +304,7 @@ const (
 	textDevValid
 	textDevExpired
 	textDevNotYetValid
+	textOfficeEmptySheet
 	textModelWireframe
 	textModelShaded
 	textModelResetView
@@ -523,6 +528,7 @@ var keyOfText = [numTexts]string{
 	"devValid",
 	"devExpired",
 	"devNotYetValid",
+	"officeEmptySheet",
 	"modelWireframe",
 	"modelShaded",
 	"modelResetView",
@@ -744,6 +750,7 @@ var textsEn = i18n.NewTexts(""+
 	"Valid"+
 	"Expired"+
 	"Not Yet Valid"+
+	"Empty sheet"+
 	"Wireframe"+
 	"Shaded"+
 	"Reset View"+
@@ -962,6 +969,7 @@ var textsEn = i18n.NewTexts(""+
 		5,
 		7,
 		13,
+		11,
 		9,
 		6,
 		10,
@@ -1183,6 +1191,7 @@ var textsZhHans = i18n.NewTexts(""+
 	"有效"+
 	"已过期"+
 	"尚未生效"+
+	"空工作表"+
 	"线框"+
 	"着色"+
 	"重置视角"+
@@ -1401,6 +1410,7 @@ var textsZhHans = i18n.NewTexts(""+
 		6,
 		9,
 		12,
+		12,
 		6,
 		6,
 		12,
@@ -1517,6 +1527,12 @@ func Supply(lang string, t Translation) {
 	}
 	if t.HexSize != nil {
 		s.HexSize = t.HexSize
+	}
+	if t.OfficeTruncatedRows != nil {
+		s.OfficeTruncatedRows = t.OfficeTruncatedRows
+	}
+	if t.OfficeTruncatedCols != nil {
+		s.OfficeTruncatedCols = t.OfficeTruncatedCols
 	}
 	if t.ModelStats != nil {
 		s.ModelStats = t.ModelStats
@@ -3406,6 +3422,61 @@ func DevNotYetValid(cx *core.Scope) string { return For(cx).DevNotYetValid() }
 
 // DevNotYetValid is the package's DevNotYetValid in the language of msgs.
 func (msgs Messages) DevNotYetValid() string { return msgs.text(textDevNotYetValid) }
+
+// OfficeEmptySheet says "Empty sheet"
+// in the language the app shows under cx.
+func OfficeEmptySheet(cx *core.Scope) string { return For(cx).OfficeEmptySheet() }
+
+// OfficeEmptySheet is the package's OfficeEmptySheet in the language of msgs.
+func (msgs Messages) OfficeEmptySheet() string { return msgs.text(textOfficeEmptySheet) }
+
+// OfficeTruncatedRows says "Only the first {count} rows are shown"
+// in the language the app shows under cx.
+func OfficeTruncatedRows(cx *core.Scope, count string) string {
+	return For(cx).OfficeTruncatedRows(count)
+}
+
+// OfficeTruncatedRows is the package's OfficeTruncatedRows in the language of msgs.
+func (msgs Messages) OfficeTruncatedRows(count string) string {
+	if i18n.IsPseudo(msgs.lang) {
+		return i18n.Pseudo(msgs.lang, Messages{lang: Source, mark: true}.OfficeTruncatedRows(count))
+	}
+	for lang := msgs.lang; ; lang = i18n.Parent(lang) {
+		if f := supplied[lang].OfficeTruncatedRows; f != nil {
+			return f(count)
+		}
+		switch lang {
+		case "", "en":
+			return "Only the first " + msgs.arg(count) + " rows are shown"
+		case "zh-Hans":
+			return "只显示前 " + count + " 行"
+		}
+	}
+}
+
+// OfficeTruncatedCols says "Only the first {count} columns are shown"
+// in the language the app shows under cx.
+func OfficeTruncatedCols(cx *core.Scope, count string) string {
+	return For(cx).OfficeTruncatedCols(count)
+}
+
+// OfficeTruncatedCols is the package's OfficeTruncatedCols in the language of msgs.
+func (msgs Messages) OfficeTruncatedCols(count string) string {
+	if i18n.IsPseudo(msgs.lang) {
+		return i18n.Pseudo(msgs.lang, Messages{lang: Source, mark: true}.OfficeTruncatedCols(count))
+	}
+	for lang := msgs.lang; ; lang = i18n.Parent(lang) {
+		if f := supplied[lang].OfficeTruncatedCols; f != nil {
+			return f(count)
+		}
+		switch lang {
+		case "", "en":
+			return "Only the first " + msgs.arg(count) + " columns are shown"
+		case "zh-Hans":
+			return "只显示前 " + count + " 列"
+		}
+	}
+}
 
 // ModelWireframe says "Wireframe"
 // in the language the app shows under cx.

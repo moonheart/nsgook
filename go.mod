@@ -5,6 +5,7 @@ go 1.27.3
 require (
 	github.com/andybalholm/brotli v1.3.0
 	github.com/nsgo-dev/nsgo v0.3.4
+	github.com/xuri/excelize/v2 v2.11.1
 	go.yaml.in/yaml/v3 v3.0.6
 	golang.org/x/image v0.48.0
 	golang.org/x/text v0.44.0
@@ -31,9 +32,14 @@ require (
 	github.com/makiuchi-d/gozxing v0.1.1 // indirect
 	github.com/modelcontextprotocol/go-sdk v1.8.0 // indirect
 	github.com/nsgo-dev/goja v0.1.0-nsgo.2.0.20261122032045-fee2b34506fc // indirect
+	github.com/richardlehane/mscfb v1.0.9 // indirect
+	github.com/richardlehane/msoleps v1.0.6 // indirect
 	github.com/segmentio/asm v1.1.3 // indirect
 	github.com/segmentio/encoding v0.5.4 // indirect
 	github.com/sergi/go-diff v1.1.0 // indirect
+	github.com/tiendc/go-deepcopy v1.7.2 // indirect
+	github.com/xuri/efp v0.0.3-0.20260924042702-217b81952dec // indirect
+	github.com/xuri/nfp v0.0.2-0.20250530014748-2ddeb826f9a9 // indirect
 	github.com/yosida95/uritemplate/v3 v3.0.2 // indirect
 	github.com/yuin/goldmark v1.8.7 // indirect
 	golang.org/x/crypto v0.59.0 // indirect

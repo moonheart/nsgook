@@ -251,6 +251,10 @@ devValid: 有效
 devExpired: 已过期
 devNotYetValid: 尚未生效
 
+officeEmptySheet: 空工作表
+officeTruncatedRows: "只显示前 {count} 行"
+officeTruncatedCols: "只显示前 {count} 列"
+
 modelWireframe: 线框
 modelShaded: 着色
 modelResetView: 重置视角
