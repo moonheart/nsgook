@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"slices"
 	"strings"
 	"sync"
 	"testing"
@@ -559,6 +560,47 @@ func TestAutoHideControlsFadeInAndOut(t *testing.T) {
 	a.Advance(200 * time.Millisecond)
 	if len(a.Query("id:auto-hide-controls")) != 0 {
 		t.Fatal("expected the controls unmounted once the fade out ends")
+	}
+}
+
+func TestVideoDragReleaseDoesNotPressSpeed(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "clip.mp4")
+	if err := os.WriteFile(path, []byte("not a real video"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	mock := &mockSystem{assocName: "Editor"}
+
+	a := nsgotest.StartApp(t, func(appCx *core.Scope) {
+		ctrl := app.Start(appCx, app.AppOptions{
+			Sys:          mock,
+			DisableHooks: true,
+			ConfigPath:   filepath.Join(t.TempDir(), "config.yaml"),
+		})
+		appCx.SetMainView(func(cx *core.Scope) core.Node {
+			sess := app.NewViewerSession(ctrl, cx, path, app.PreviewOptions{})
+			return app.RenderViewerSurface(cx, sess, func() {})
+		})
+	}, nsgotest.Environment(core.Environment{OS: core.OSWindows}))
+
+	a.WaitFor("id:video-view", 2*time.Second)
+	a.Hover("id:video-view")
+	a.Settle()
+	a.WaitFor("id:media-speed", 2*time.Second)
+
+	// A slider drag's release lands on the speed button, as Windows reports
+	// it, but must not be taken for its click.
+	a.DragTo("id:media-volume", "id:media-speed")
+	a.Report(nsgotest.Event{Kind: nsgotest.EventPress, ID: a.Find("id:media-speed").ID})
+	a.Settle()
+	if slices.Contains(a.Texts(), "1.2×") {
+		t.Fatal("expected the drag release not to change the playback speed")
+	}
+
+	time.Sleep(250 * time.Millisecond)
+	a.Press("id:media-speed")
+	a.Settle()
+	if !slices.Contains(a.Texts(), "1.2×") {
+		t.Fatal("expected a press of the speed button to change the playback speed")
 	}
 }
 

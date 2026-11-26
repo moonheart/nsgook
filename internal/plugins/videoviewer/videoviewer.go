@@ -88,6 +88,15 @@ func (Plugin) View(cx *core.Scope, path string, ctx *viewer.Context) core.Node {
 	ctx.TrackMedia(cx)
 	controlsHide := pluginui.NewAutoHide(cx, 2500*time.Millisecond)
 	controlsHide.Track(cx, ctx.PointerInside, ctx.PointerActivity)
+	// Dragging a slider must not press a button it is released over.
+	dragGuard := pluginui.NewDragGuard()
+	controlPress := func(press func()) func() {
+		return func() {
+			if !dragGuard.Blocked() {
+				press()
+			}
+		}
+	}
 	cx.Effect(func() {
 		if ctx.IsReleasing() {
 			stopped.Store(true)
@@ -296,7 +305,7 @@ func (Plugin) View(cx *core.Scope, path string, ctx *viewer.Context) core.Node {
 				Label:   locales.For(cx).MediaPlay(),
 				Size:    28,
 				TestID:  "media-play",
-				OnPress: togglePlay,
+				OnPress: controlPress(togglePlay),
 			},
 			core.Text{
 				ContentFunc: func() string {
@@ -307,6 +316,11 @@ func (Plugin) View(cx *core.Scope, path string, ctx *viewer.Context) core.Node {
 			},
 			core.View{
 				Style: core.Style{FlexGrow: 1, FlexShrink: 1, MinWidth: core.Pt(80)},
+				OnTouch: func(e core.TouchEvent) {
+					if e.Phase == core.TouchEnd {
+						dragGuard.DragEnded()
+					}
+				},
 				Children: []core.Node{
 					ui.Slider{
 						Min: 0,
@@ -345,10 +359,15 @@ func (Plugin) View(cx *core.Scope, path string, ctx *viewer.Context) core.Node {
 				Label:   locales.For(cx).MediaMute(),
 				Size:    26,
 				TestID:  "media-mute",
-				OnPress: toggleMute,
+				OnPress: controlPress(toggleMute),
 			},
 			core.View{
 				Style: core.Style{Width: core.Pt(70)},
+				OnTouch: func(e core.TouchEvent) {
+					if e.Phase == core.TouchEnd {
+						dragGuard.DragEnded()
+					}
+				},
 				Children: []core.Node{
 					ui.Slider{
 						Min:    0,
@@ -376,7 +395,7 @@ func (Plugin) View(cx *core.Scope, path string, ctx *viewer.Context) core.Node {
 			ui.Press{
 				Label:   locales.For(cx).MediaSpeed(),
 				TestID:  "media-speed",
-				OnPress: cycleSpeed,
+				OnPress: controlPress(cycleSpeed),
 				Children: []core.Node{
 					core.View{
 						Style: core.Style{
@@ -405,7 +424,7 @@ func (Plugin) View(cx *core.Scope, path string, ctx *viewer.Context) core.Node {
 				Size:     26,
 				TestID:   "media-loop",
 				Selected: loop.Get,
-				OnPress:  toggleLoop,
+				OnPress:  controlPress(toggleLoop),
 			},
 		},
 	}
