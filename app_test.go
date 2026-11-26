@@ -455,6 +455,35 @@ func TestOpenSettingsFromMoreMenuSurvivesPopupClose(t *testing.T) {
 	}
 }
 
+func TestMoreMenuTriggerShowsHoverFill(t *testing.T) {
+	fx := createFixtures(t)
+	mock := &mockSystem{assocName: "Editor"}
+
+	a := nsgotest.StartApp(t, func(appCx *core.Scope) {
+		ctrl := app.Start(appCx, app.AppOptions{
+			Sys:          mock,
+			DisableHooks: true,
+			ConfigPath:   filepath.Join(t.TempDir(), "config.yaml"),
+		})
+		appCx.SetMainView(func(cx *core.Scope) core.Node {
+			sess := app.NewViewerSession(ctrl, cx, fx.goF, app.PreviewOptions{})
+			return app.RenderViewerSurface(cx, sess, func() {})
+		})
+	}, nsgotest.Environment(core.Environment{OS: core.OSWindows}))
+
+	a.WaitFor("id:btn-more", 2*time.Second)
+	a.Hover("id:btn-more")
+	a.Settle()
+
+	trigger := a.Find("id:btn-more")
+	if trigger == nil || len(trigger.Children) == 0 {
+		t.Fatal("expected the More menu trigger to render a face")
+	}
+	if face := trigger.Children[0]; face.Style.Background == 0 {
+		t.Fatal("expected the More menu trigger's face to fill under the pointer")
+	}
+}
+
 func TestCloseActiveReusesHiddenWindowAndPinnedSessionsCollect(t *testing.T) {
 	fx := createFixtures(t)
 	cfgPath := filepath.Join(t.TempDir(), "config.yaml")

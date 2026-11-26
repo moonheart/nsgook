@@ -523,20 +523,12 @@ func RenderViewerSurface(cx *core.Scope, s *ViewerSession, onClose func()) core.
 		TestID: "btn-more",
 		Label:  locales.For(cx).WinMore(),
 		Trigger: ui.Button{
-			Variant: ui.ButtonGhost,
-			Size:    ui.SizeSmall,
-			Label:   locales.For(cx).WinMore(),
-			Style:   core.Style{Width: core.Pt(26), Height: core.Pt(26), Padding: core.All(0)},
-		},
-		Face: core.View{
-			Style: core.Style{
-				Width:          core.Pt(26),
-				Height:         core.Pt(26),
-				CornerRadius:   ui.RadiusControl,
-				AlignItems:     core.AlignCenter,
-				JustifyContent: core.JustifyCenter,
-			},
-			Children: []core.Node{ui.IconOf(lucide.Ellipsis, 15, colors.Text)},
+			Variant:  ui.ButtonGhost,
+			Size:     ui.SizeSmall,
+			Label:    locales.For(cx).WinMore(),
+			Icon:     lucide.Ellipsis,
+			IconSize: 15,
+			Style:    core.Style{Width: core.Pt(26), Height: core.Pt(26), Padding: core.All(0)},
 		},
 		Children: []core.Node{
 			core.Dynamic(func(cx *core.Scope) core.Node {
