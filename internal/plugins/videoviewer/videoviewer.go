@@ -4,6 +4,7 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"fmt"
+	"math"
 	"net"
 	"net/http"
 	"path/filepath"
@@ -372,7 +373,6 @@ func (Plugin) View(cx *core.Scope, path string, ctx *viewer.Context) core.Node {
 					ui.Slider{
 						Min:    0,
 						Max:    100,
-						Step:   5,
 						TestID: "media-volume",
 						Value: func() float64 {
 							if muted.Get() {
@@ -381,6 +381,9 @@ func (Plugin) View(cx *core.Scope, path string, ctx *viewer.Context) core.Node {
 							return float64(volume.Get() * 100)
 						},
 						OnChange: func(v float64) {
+							// Snap to the same 5% steps the slider drew ticks for,
+							// without drawing a tick under every step.
+							v = math.Round(v/5) * 5
 							if v <= 0.5 {
 								muted.Set(true)
 								volume.Set(0.05)
