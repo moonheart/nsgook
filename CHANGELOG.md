@@ -3,6 +3,26 @@
 All notable changes to NSGook are documented here. This file and each
 GitHub release's notes are generated from Conventional Commit messages.
 
+## [0.1.2] - 2026-11-27
+
+### Features
+- **ui**: Auto-hide media controls until the pointer moves
+- **ui**: Fade the media controls in and out
+- **office**: Render DOCX, XLSX, and PPTX previews
+
+### Fixes
+- **video**: Play non-ASCII file names natively
+- **ui**: Fill the More menu trigger under the pointer
+- **ui**: Close the More menu when the preview hides
+- **ui**: Ignore a slider release over the media buttons
+- **ui**: Remove the volume slider's step ticks
+
+### CI
+- **release**: Build the Windows installer without NSIS
+
+### Maintenance
+- **deps**: Update nsgo to v0.3.4
+
 ## [0.1.1] - 2026-11-24
 
 ### Fixes
