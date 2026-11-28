@@ -30,6 +30,9 @@ go generate ./locales
 ```
 
 Notes:
+- Stay on nsgo v0.3.4 for now: v0.4.0 panics in the Windows painter's
+  `pushAreas` (empty damage areas) when the Settings window is opened, reproduced
+  twice; revisit once a patch release fixes it.
 - Format Go files with `gofmt -w` before finishing edits.
 - Never force-kill a user-running `NSGook.exe` if `build` reports `Access is denied`; report the lock cleanly instead.
 - Do not bypass `commit.gpgsign` when using Git.
