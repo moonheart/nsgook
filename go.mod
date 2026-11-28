@@ -4,7 +4,7 @@ go 1.27.3
 
 require (
 	github.com/andybalholm/brotli v1.3.0
-	github.com/nsgo-dev/nsgo v0.3.4
+	github.com/nsgo-dev/nsgo v0.4.0
 	github.com/xuri/excelize/v2 v2.11.1
 	go.yaml.in/yaml/v3 v3.0.6
 	golang.org/x/image v0.48.0
@@ -12,6 +12,7 @@ require (
 )
 
 require (
+	cloud.google.com/go/compute/metadata v0.3.0 // indirect
 	github.com/alecthomas/chroma/v2 v2.27.0 // indirect
 	github.com/caelyreth/untie v0.5.0 // indirect
 	github.com/clipperhouse/displaywidth v0.11.0 // indirect
@@ -43,6 +44,7 @@ require (
 	github.com/yosida95/uritemplate/v3 v3.0.2 // indirect
 	github.com/yuin/goldmark v1.8.7 // indirect
 	golang.org/x/crypto v0.59.0 // indirect
+	golang.org/x/mod v0.43.0 // indirect
 	golang.org/x/net v0.62.0 // indirect
 	golang.org/x/oauth2 v0.35.0 // indirect
 	golang.org/x/sync v0.25.0 // indirect
