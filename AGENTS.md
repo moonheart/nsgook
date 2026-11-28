@@ -17,7 +17,7 @@ Always use `go tool nsgo` rather than raw `go test` / `go build` / `go vet`, and
 go tool nsgo check
 
 # Headless UI, plugin, and memory-regression tests
-go tool nsgo test
+go tool nsgo test ./...
 
 # Development mode
 go tool nsgo dev

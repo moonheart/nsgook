@@ -68,7 +68,7 @@
 ### Prerequisites
 
 - **Go**: matches `go.mod` (`go 1.27.3+`)
-- **OS**: Windows x64 for running/building the native desktop app (`go tool nsgo test` also runs headless tests)
+- **OS**: Windows x64 for running/building the native desktop app (`go tool nsgo test ./...` also runs headless tests)
 
 ### Common Commands
 
@@ -77,7 +77,7 @@
 go tool nsgo check
 
 # Run the headless test suite
-go tool nsgo test
+go tool nsgo test ./...
 
 # Launch in development mode
 go tool nsgo dev

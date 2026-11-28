@@ -68,7 +68,7 @@
 ### 环境要求
 
 - **Go 版本**：与 `go.mod` 一致（`go 1.27.3+`）
-- **操作系统**：运行与打包原生桌面端需 Windows x64（无头测试可通过 `go tool nsgo test` 执行）
+- **操作系统**：运行与打包原生桌面端需 Windows x64（无头测试可通过 `go tool nsgo test ./...` 执行）
 
 ### 常用命令
 
@@ -77,7 +77,7 @@
 go tool nsgo check
 
 # 运行全部无头单元测试与内存回归测试
-go tool nsgo test
+go tool nsgo test ./...
 
 # 开发模式运行
 go tool nsgo dev

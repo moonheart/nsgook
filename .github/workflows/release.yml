@@ -45,7 +45,7 @@ jobs:
         run: go tool nsgo check
 
       - name: NSGo Test
-        run: go tool nsgo test
+        run: go tool nsgo test ./...
 
       - name: Build Windows installer
         shell: pwsh
