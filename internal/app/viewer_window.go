@@ -16,6 +16,7 @@ import (
 	"github.com/nsgo-dev/nsgo/icons/lucide"
 	"github.com/nsgo-dev/nsgo/ui"
 
+	"nsgook/internal/config"
 	"nsgook/internal/plugins/infopanel"
 	"nsgook/internal/plugins/pluginui"
 	"nsgook/internal/sys"
@@ -414,8 +415,9 @@ func RenderViewerSurface(cx *core.Scope, s *ViewerSession, onClose func()) core.
 	cx.Effect(func() {
 		cfg := s.ctrl.cfgSig.Get()
 		cx.SetLocale(cfg.Language)
-		if desktop.ShowsMaterial(cx) {
-			desktop.SetWindowMaterial(cx, windowMaterialForConfig(cfg))
+		mat := windowMaterialForConfig(cfg)
+		if mat != desktop.WindowMaterialNone || desktop.ShowsMaterial(cx) {
+			desktop.SetWindowMaterial(cx, mat)
 		}
 	})
 
@@ -947,7 +949,7 @@ func RenderViewerSurface(cx *core.Scope, s *ViewerSession, onClose func()) core.
 		},
 		StyleFunc: func() core.Style {
 			cfg := s.ctrl.cfgSig.Get()
-			if !cfg.UseTransparency || !desktop.ShowsMaterial(cx) {
+			if !cfg.UseTransparency || cfg.WindowBackdrop == config.BackdropNone || !desktop.ShowsMaterial(cx) {
 				return core.Style{Background: colors.Background()}
 			}
 			// Keep a subtle tint so contrast remains crisp over Acrylic/Mica.
